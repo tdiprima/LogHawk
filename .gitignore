@@ -1,37 +1,10 @@
-# OS
-.DS_Store
-Thumbs.db
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
 
-# Secrets & credentials
-.env
-.env.*
-*.secret
-*_secret
-secrets/
-credentials/
-
-# Logs
-*.log
-logs/
-
-# Temp & runtime
-*.tmp
-*.bak
-*.swp
-*~
-/tmp/
-
-# Script output / artifacts
-*.out
-*.pid
-*.lock
-
-# Editor
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# Shell history / debug
-.bash_history
-.zsh_history
+# Virtual environments
+.venv
