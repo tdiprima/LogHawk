@@ -176,4 +176,8 @@ Run with `sudo`. Auth logs are root-readable only.
 
 `docs/spot-weirdness.md` — explains the most common attack patterns, what to look for, a daily 5-minute checklist, and what to do when you find something bad.
 
+---
+
+If you want mail/Slack/PagerDuty, the hook point is the `emit_alert` function in `watch-alerts.py:108`. Add a call there and it fires on every alert.
+
 <br>
