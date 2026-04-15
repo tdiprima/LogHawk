@@ -16,6 +16,9 @@ Usage:
 
     # Write JSON alerts to a file (for LLM analysis later):
     sudo python3 watch-alerts.py --json-out /var/log/security-alerts.jsonl
+
+    # Email CRITICAL/HIGH alerts via local MTA (no credentials needed):
+    sudo python3 watch-alerts.py --email admin@example.com
 """
 
 import argparse
@@ -25,11 +28,14 @@ import logging
 import os
 import re
 import signal
+import smtplib
+import socket
 import sys
 import threading
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
+from email.message import EmailMessage
 
 # ── Logging setup ─────────────────────────────────────────────────────
 logging.basicConfig(
@@ -147,6 +153,34 @@ SEVERITY_COLOR = {
 }
 RESET = "\033[0m"
 
+# Severities that trigger email. MEDIUM/LOW/INFO are print-only.
+EMAIL_SEVERITIES = {"CRITICAL", "HIGH"}
+
+
+def send_alert_email(recipient: str, severity: str, description: str, raw_line: str, source_file: str):
+    """Send alert email via local MTA. No credentials required."""
+    hostname = socket.getfqdn()
+    subject = f"[{severity}] Security alert on {hostname}: {description}"
+    body = (
+        f"Severity:    {severity}\n"
+        f"Description: {description}\n"
+        f"Host:        {hostname}\n"
+        f"Log file:    {source_file}\n"
+        f"Log line:    {raw_line.strip()}\n"
+    )
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = f"security-alerts@{hostname}"
+    msg["To"] = recipient
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP("localhost") as smtp:
+            smtp.send_message(msg)
+    except OSError as err:
+        log.error("Email send failed: %s", err)
+
 
 def emit_alert(
     severity: str,
@@ -155,8 +189,9 @@ def emit_alert(
     raw_line: str,
     source_file: str,
     json_out_handle,
+    email_recipient: str | None,
 ):
-    """Print a colored alert to stdout and optionally write JSON to a file."""
+    """Print a colored alert to stdout, optionally write JSON, optionally email."""
     timestamp = datetime.now(timezone.utc).isoformat()
     color = SEVERITY_COLOR.get(severity, "")
 
@@ -178,10 +213,13 @@ def emit_alert(
         json_out_handle.write(json.dumps(record) + "\n")
         json_out_handle.flush()
 
+    if email_recipient and severity in EMAIL_SEVERITIES:
+        send_alert_email(email_recipient, severity, description, raw_line, source_file)
+
 
 # ── Log tailer ────────────────────────────────────────────────────────
 
-def tail_file(filepath: str, json_out_handle):
+def tail_file(filepath: str, json_out_handle, email_recipient: str | None):
     """
     Open a log file, seek to end, then yield new lines as they arrive.
     Handles log rotation by detecting if the file was truncated or replaced.
@@ -200,7 +238,7 @@ def tail_file(filepath: str, json_out_handle):
         line = file_handle.readline()
 
         if line:
-            process_line(line, filepath, json_out_handle)
+            process_line(line, filepath, json_out_handle, email_recipient)
         else:
             time.sleep(0.2)
 
@@ -216,7 +254,7 @@ def tail_file(filepath: str, json_out_handle):
                 pass  # File temporarily missing during rotation, retry next tick
 
 
-def process_line(line: str, source_file: str, json_out_handle):
+def process_line(line: str, source_file: str, json_out_handle, email_recipient: str | None):
     """Run all alert patterns against a single log line."""
     for compiled_pattern, severity, description, category in COMPILED_PATTERNS:
         match = compiled_pattern.search(line)
@@ -232,7 +270,7 @@ def process_line(line: str, source_file: str, json_out_handle):
                 if severity not in ("CRITICAL", "HIGH"):
                     continue
 
-        emit_alert(severity, description, category, line, source_file, json_out_handle)
+        emit_alert(severity, description, category, line, source_file, json_out_handle, email_recipient)
         break  # One alert per line is enough
 
 
@@ -273,6 +311,12 @@ def main():
         default=None,
         help="Write JSON alert records to this file (one JSON object per line).",
     )
+    parser.add_argument(
+        "--email",
+        default=None,
+        metavar="ADDRESS",
+        help="Email address to notify on CRITICAL/HIGH alerts via local MTA.",
+    )
     args = parser.parse_args()
 
     log_files = resolve_log_files(args.file)
@@ -285,6 +329,9 @@ def main():
         except OSError as err:
             log.error("Cannot open JSON output file: %s", err)
             sys.exit(1)
+
+    if args.email:
+        log.info("Email alerts (CRITICAL/HIGH) → %s", args.email)
 
     print(f"\nWatching {len(log_files)} file(s). Press Ctrl+C to stop.\n")
 
@@ -303,7 +350,7 @@ def main():
     for filepath in log_files:
         thread = threading.Thread(
             target=tail_file,
-            args=(filepath, json_out_handle),
+            args=(filepath, json_out_handle, args.email),
             daemon=True,
             name=f"tailer-{os.path.basename(filepath)}",
         )
