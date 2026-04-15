@@ -90,6 +90,12 @@ sudo python3 tools/watch-alerts.py \
   --json-out /var/log/security-alerts.jsonl
 ```
 
+Email:
+
+```sh
+sudo python3 tools/watch-alerts.py --email admin@example.com --file '/var/log/remote/*/auth.log' --json-out /var/log/security-alerts.jsonl
+```
+
 ## Searching Logs
 
 Run these on the **log server**:
@@ -175,9 +181,5 @@ Run with `sudo`. Auth logs are root-readable only.
 ## Read This Next
 
 `docs/spot-weirdness.md` — explains the most common attack patterns, what to look for, a daily 5-minute checklist, and what to do when you find something bad.
-
----
-
-If you want mail/Slack/PagerDuty, the hook point is the `emit_alert` function in `watch-alerts.py:108`. Add a call there and it fires on every alert.
 
 <br>
