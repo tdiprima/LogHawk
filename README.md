@@ -230,6 +230,8 @@ No logs found by the watcher:
 
 ```bash
 sudo python3 tools/watch-alerts.py --file /var/log/auth.log
+# or on RHEL-family systems:
+sudo python3 tools/watch-alerts.py --file /var/log/secure
 ```
 
 ## Next

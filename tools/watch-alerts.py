@@ -5,11 +5,13 @@ Real-time log watcher. Tails auth logs and prints alerts when suspicious
 patterns appear. No external dependencies — stdlib only.
 
 Usage:
-    # Watch local auth log:
+    # Watch local auth log (Ubuntu/Debian):
     sudo python3 watch-alerts.py
 
     # Watch a specific file:
     sudo python3 watch-alerts.py --file /var/log/auth.log
+    # or on RHEL/CentOS/Rocky:
+    sudo python3 watch-alerts.py --file /var/log/secure
 
     # Watch all remote logs on the central server:
     sudo python3 watch-alerts.py --file /var/log/remote/*/auth.log
@@ -304,7 +306,11 @@ def main():
     parser.add_argument(
         "--file",
         default="/var/log/auth.log",
-        help="Log file to watch. Supports glob: '/var/log/remote/*/auth.log'",
+        help=(
+            "Log file to watch. Supports glob: '/var/log/remote/*/auth.log'. "
+            "Local defaults are /var/log/auth.log on Ubuntu/Debian and "
+            "/var/log/secure on RHEL-family systems."
+        ),
     )
     parser.add_argument(
         "--json-out",
