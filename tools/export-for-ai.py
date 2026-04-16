@@ -66,19 +66,24 @@ COMPILED_PATTERNS = [
 SYSLOG_TS_PATTERN = re.compile(
     r"^(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"
 )
-CURRENT_YEAR = datetime.now().year
-
-
 def parse_syslog_timestamp(line: str) -> datetime | None:
     """Parse syslog-format timestamp from a log line. Returns UTC datetime or None."""
     match = SYSLOG_TS_PATTERN.match(line)
     if not match:
         return None
+
     try:
-        # syslog omits the year — assume current year
-        raw = f"{match.group(1)} {CURRENT_YEAR}"
+        now = datetime.now(timezone.utc)
+        raw = f"{match.group(1)} {now.year}"
         dt = datetime.strptime(raw, "%b %d %H:%M:%S %Y")
-        return dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=timezone.utc)
+
+        # Syslog timestamps omit the year. If the parsed timestamp lands too far
+        # in the future, treat it as belonging to the previous year.
+        if dt - now > timedelta(days=1):
+            dt = dt.replace(year=dt.year - 1)
+
+        return dt
     except ValueError:
         return None
 
