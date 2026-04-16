@@ -31,6 +31,8 @@ CENTRAL_CONF="/etc/rsyslog.d/10-security-central.conf"
 LOG_DIR="/var/log/remote"
 LOGROTATE_CONF="/etc/logrotate.d/remote-security-logs"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_OWNER="root"
+LOG_GROUP="root"
 
 usage() {
     cat <<EOF
@@ -109,6 +111,26 @@ install_optional_package() {
     esac
 }
 
+detect_log_owner_group() {
+    if id -u syslog >/dev/null 2>&1; then
+        LOG_OWNER="syslog"
+    elif id -u rsyslog >/dev/null 2>&1; then
+        LOG_OWNER="rsyslog"
+    else
+        LOG_OWNER="root"
+    fi
+
+    if getent group adm >/dev/null 2>&1; then
+        LOG_GROUP="adm"
+    elif id -gn "${LOG_OWNER}" >/dev/null 2>&1; then
+        LOG_GROUP="$(id -gn "${LOG_OWNER}")"
+    elif getent group root >/dev/null 2>&1; then
+        LOG_GROUP="root"
+    else
+        LOG_GROUP="${LOG_OWNER}"
+    fi
+}
+
 # ── Detect OS ─────────────────────────────────────────────────────────
 if command -v apt-get &>/dev/null; then
     PKG_MANAGER="apt-get"
@@ -136,6 +158,7 @@ fi
 
 echo "      Ensuring TLS driver package is available..."
 install_optional_package "${TLS_PKG}"
+detect_log_owner_group
 
 for path in "${TLS_CA}" "${TLS_CERT}" "${TLS_KEY}"; do
     if [[ ! -f "${path}" ]]; then
@@ -147,7 +170,7 @@ done
 
 echo "[2/5] Creating log storage at ${LOG_DIR}..."
 mkdir -p "${LOG_DIR}"
-chown -R syslog:adm "${LOG_DIR}" 2>/dev/null || chown -R root:root "${LOG_DIR}"
+chown -R "${LOG_OWNER}:${LOG_GROUP}" "${LOG_DIR}"
 chmod 750 "${LOG_DIR}"
 
 echo "[3/5] Writing central receiver config..."
@@ -169,7 +192,7 @@ cat > "${LOGROTATE_CONF}" <<EOF
     delaycompress
     missingok
     notifempty
-    create 0640 syslog adm
+    create 0640 ${LOG_OWNER} ${LOG_GROUP}
     sharedscripts
     postrotate
         /usr/bin/systemctl reload rsyslog > /dev/null 2>&1 || true
@@ -210,3 +233,4 @@ echo ""
 echo "Central log server ready."
 echo "Logs will appear in: ${LOG_DIR}/<hostname>/"
 echo "Listening for TLS syslog on TCP ${TLS_PORT}."
+echo "Log file owner/group: ${LOG_OWNER}:${LOG_GROUP}"

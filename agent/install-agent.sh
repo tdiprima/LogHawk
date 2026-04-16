@@ -25,6 +25,7 @@ TLS_CERT="/etc/rsyslog.d/certs/agent-cert.pem"
 TLS_KEY="/etc/rsyslog.d/certs/agent-key.pem"
 AGENT_CONF="/etc/rsyslog.d/99-security-forward.conf"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_AUTH_LOG="/var/log/auth.log"
 
 usage() {
     cat <<EOF
@@ -116,14 +117,17 @@ if command -v apt-get &>/dev/null; then
     PKG_MANAGER="apt-get"
     INSTALL_CMD=(apt-get install -y rsyslog)
     TLS_PKG="rsyslog-gnutls"
+    LOCAL_AUTH_LOG="/var/log/auth.log"
 elif command -v dnf &>/dev/null; then
     PKG_MANAGER="dnf"
     INSTALL_CMD=(dnf install -y rsyslog)
     TLS_PKG="rsyslog-gnutls"
+    LOCAL_AUTH_LOG="/var/log/secure"
 elif command -v yum &>/dev/null; then
     PKG_MANAGER="yum"
     INSTALL_CMD=(yum install -y rsyslog)
     TLS_PKG="rsyslog-gnutls"
+    LOCAL_AUTH_LOG="/var/log/secure"
 else
     echo "ERROR: No supported package manager found (apt/dnf/yum)." >&2
     exit 3
@@ -155,6 +159,7 @@ sed \
     -e "s|TLS_CA_FILE|${TLS_CA}|g" \
     -e "s|TLS_CERT_FILE|${TLS_CERT}|g" \
     -e "s|TLS_KEY_FILE|${TLS_KEY}|g" \
+    -e "s|LOCAL_AUTH_LOG|${LOCAL_AUTH_LOG}|g" \
     "${SCRIPT_DIR}/rsyslog-agent.conf" > "${AGENT_CONF}"
 
 chmod 640 "${AGENT_CONF}"
@@ -179,4 +184,4 @@ fi
 
 echo ""
 echo "Done. This server now forwards logs to ${CENTRAL_SERVER} over TLS."
-echo "Local auth log: /var/log/auth.log (Ubuntu) or /var/log/secure (RHEL)"
+echo "Local auth log: ${LOCAL_AUTH_LOG}"

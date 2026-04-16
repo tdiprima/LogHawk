@@ -55,7 +55,7 @@ stale_found=0
 
 while IFS= read -r -d '' auth_log; do
     host="$(basename "$(dirname "${auth_log}")")"
-    file_epoch="$(stat -f %m "${auth_log}")"
+    file_epoch="$(stat -c %Y "${auth_log}")"
     age_minutes="$(( (now_epoch - file_epoch) / 60 ))"
 
     if (( age_minutes > STALE_MINUTES )); then
