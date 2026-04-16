@@ -95,6 +95,34 @@ Suggested destination on each host:
 /etc/rsyslog.d/certs/
 ```
 
+To copy the generated files over `ssh`/`scp` and install them into that directory:
+
+```bash
+./central/copy-certs.sh log-server.example.com --role collector
+./central/copy-certs.sh web-01.example.com --role agent --client-name web-01
+```
+
+Notes:
+
+- The required positional argument is the target host IP or DNS name.
+- `--role collector` copies `logging-ca.pem`, `server-cert.pem`, and `server-key.pem`.
+- `--role agent` copies `logging-ca.pem`, `agent-cert.pem`, and `agent-key.pem`.
+- For agents, `--client-name` must match the name used with `generate-certs.sh --client-name ...`.
+- The script assumes the remote SSH user can run `sudo` to write `/etc/rsyslog.d/certs/`.
+
+To add one more agent later without replacing the server certificate:
+
+```bash
+./central/generate-client-cert.sh --client-name app-01
+./central/copy-certs.sh app-01.example.com --role agent --client-name app-01
+```
+
+Notes:
+
+- `generate-client-cert.sh` requires an existing `central/certs/ca/ca-key.pem` and `central/certs/ca/ca-cert.pem`.
+- It only creates or replaces `central/certs/clients/<client-name>/`.
+- Use `--force` if you intentionally want to reissue a certificate for an existing client name.
+
 ### 3. Install the central collector
 
 On the log server:
