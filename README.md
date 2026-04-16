@@ -55,16 +55,11 @@ logging-stack/
 
 Centralized logs are much less useful if timestamps drift.
 
-Install and enable one of:
+Install and enable:
 
 ```bash
+sudo apt install chrony
 sudo systemctl enable --now chronyd
-```
-
-or
-
-```bash
-sudo systemctl enable --now systemd-timesyncd
 ```
 
 ### 2. Generate a private CA and certificates
