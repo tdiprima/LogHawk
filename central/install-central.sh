@@ -6,6 +6,7 @@
 #   sudo ./install-central.sh
 #       [--port 6514]
 #       [--allow-from 10.0.0.0/24]
+#       [--allow-from 192.168.1.0/24]
 #       [--tls-ca /etc/rsyslog.d/certs/logging-ca.pem]
 #       [--tls-cert /etc/rsyslog.d/certs/server-cert.pem]
 #       [--tls-key /etc/rsyslog.d/certs/server-key.pem]
@@ -22,7 +23,7 @@
 set -euo pipefail
 
 TLS_PORT="6514"
-ALLOW_FROM=""
+ALLOW_FROM=()
 TLS_CA="/etc/rsyslog.d/certs/logging-ca.pem"
 TLS_CERT="/etc/rsyslog.d/certs/server-cert.pem"
 TLS_KEY="/etc/rsyslog.d/certs/server-key.pem"
@@ -41,6 +42,7 @@ Usage: sudo $0 [options]
 Options:
   --port PORT          TLS listen port (default: ${TLS_PORT})
   --allow-from CIDR    Restrict the firewall rule to a source subnet/IP.
+                       Repeat to allow multiple source subnets/IPs.
   --tls-ca PATH        CA certificate path (default: ${TLS_CA})
   --tls-cert PATH      Server certificate path (default: ${TLS_CERT})
   --tls-key PATH       Server private key path (default: ${TLS_KEY})
@@ -56,7 +58,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --allow-from)
-            ALLOW_FROM="${2:-}"
+            ALLOW_FROM+=("${2:-}")
             shift 2
             ;;
         --tls-ca)
@@ -202,17 +204,21 @@ EOF
 
 echo "[5/5] Configuring firewall for TCP ${TLS_PORT}..."
 if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
-    if [[ -n "${ALLOW_FROM}" ]]; then
-        ufw allow from "${ALLOW_FROM}" to any port "${TLS_PORT}" proto tcp
-        echo "      Allowed source ${ALLOW_FROM}."
+    if [[ "${#ALLOW_FROM[@]}" -gt 0 ]]; then
+        for cidr in "${ALLOW_FROM[@]}"; do
+            ufw allow from "${cidr}" to any port "${TLS_PORT}" proto tcp
+            echo "      Allowed source ${cidr}."
+        done
     else
         ufw allow "${TLS_PORT}/tcp"
         echo "      WARNING: Opened ${TLS_PORT}/tcp to any source. Prefer --allow-from." >&2
     fi
 elif command -v firewall-cmd &>/dev/null; then
-    if [[ -n "${ALLOW_FROM}" ]]; then
-        firewall-cmd --permanent --add-rich-rule="rule family='ipv4' source address='${ALLOW_FROM}' port protocol='tcp' port='${TLS_PORT}' accept"
-        echo "      Allowed source ${ALLOW_FROM}."
+    if [[ "${#ALLOW_FROM[@]}" -gt 0 ]]; then
+        for cidr in "${ALLOW_FROM[@]}"; do
+            firewall-cmd --permanent --add-rich-rule="rule family='ipv4' source address='${cidr}' port protocol='tcp' port='${TLS_PORT}' accept"
+            echo "      Allowed source ${cidr}."
+        done
     else
         firewall-cmd --permanent --add-port="${TLS_PORT}/tcp"
         echo "      WARNING: Opened ${TLS_PORT}/tcp to any source. Prefer --allow-from." >&2

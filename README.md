@@ -108,6 +108,7 @@ On the log server:
 sudo ./central/install-central.sh \
   --port 6514 \
   --allow-from 10.0.0.0/24 \
+  --allow-from 192.168.1.0/24 \
   --tls-ca /etc/rsyslog.d/certs/logging-ca.pem \
   --tls-cert /etc/rsyslog.d/certs/server-cert.pem \
   --tls-key /etc/rsyslog.d/certs/server-key.pem \
@@ -117,6 +118,7 @@ sudo ./central/install-central.sh \
 Notes:
 
 - `--allow-from` is strongly recommended.
+- Repeat `--allow-from` to allow multiple source CIDRs/IPs.
 - If you omit `--allow-from`, the script opens the TLS port to any source.
 - Retention is configurable; default is `90` days.
 
