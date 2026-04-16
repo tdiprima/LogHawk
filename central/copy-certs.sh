@@ -19,6 +19,11 @@ REMOTE_DIR="/etc/rsyslog.d/certs"
 OUT_DIR="${PWD}/central/certs"
 CLIENT_NAME=""
 SSH_PORT="22"
+SSH_OPTS=(
+    -o ConnectTimeout=10
+    -o ServerAliveInterval=5
+    -o ServerAliveCountMax=3
+)
 
 usage() {
     cat <<EOF
@@ -148,39 +153,42 @@ done
 REMOTE="${REMOTE_USER}@${HOST}"
 REMOTE_TMP="/tmp/logging-stack-certs.$$"
 
+echo "[0/4] Validating SSH and sudo access to ${REMOTE}..."
+ssh -tt -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "sudo -v"
+
 echo "[1/4] Creating remote staging directory on ${REMOTE}..."
-ssh -p "${SSH_PORT}" "${REMOTE}" "mkdir -p '${REMOTE_TMP}'"
+ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "mkdir -p '${REMOTE_TMP}'"
 
 cleanup() {
-    ssh -p "${SSH_PORT}" "${REMOTE}" "rm -rf '${REMOTE_TMP}'" >/dev/null 2>&1 || true
+    ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "rm -rf '${REMOTE_TMP}'" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 echo "[2/4] Copying certificate files to ${REMOTE_TMP}..."
 for i in "${!SOURCE_FILES[@]}"; do
-    scp -P "${SSH_PORT}" "${SOURCE_FILES[$i]}" "${REMOTE}:${REMOTE_TMP}/${DEST_FILES[$i]}"
+    scp -P "${SSH_PORT}" "${SSH_OPTS[@]}" "${SOURCE_FILES[$i]}" "${REMOTE}:${REMOTE_TMP}/${DEST_FILES[$i]}"
 done
 
 echo "[3/4] Installing files into ${REMOTE_DIR}..."
-ssh -p "${SSH_PORT}" "${REMOTE}" "
-    sudo install -d -m 700 '${REMOTE_DIR}' &&
-    sudo install -m 644 '${REMOTE_TMP}/logging-ca.pem' '${REMOTE_DIR}/logging-ca.pem'
+ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "
+    sudo -n install -d -m 700 '${REMOTE_DIR}' &&
+    sudo -n install -m 644 '${REMOTE_TMP}/logging-ca.pem' '${REMOTE_DIR}/logging-ca.pem'
 "
 
 if [[ "${ROLE}" == "collector" ]]; then
-    ssh -p "${SSH_PORT}" "${REMOTE}" "
-        sudo install -m 644 '${REMOTE_TMP}/server-cert.pem' '${REMOTE_DIR}/server-cert.pem' &&
-        sudo install -m 600 '${REMOTE_TMP}/server-key.pem' '${REMOTE_DIR}/server-key.pem'
+    ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "
+        sudo -n install -m 644 '${REMOTE_TMP}/server-cert.pem' '${REMOTE_DIR}/server-cert.pem' &&
+        sudo -n install -m 600 '${REMOTE_TMP}/server-key.pem' '${REMOTE_DIR}/server-key.pem'
     "
 else
-    ssh -p "${SSH_PORT}" "${REMOTE}" "
-        sudo install -m 644 '${REMOTE_TMP}/agent-cert.pem' '${REMOTE_DIR}/agent-cert.pem' &&
-        sudo install -m 600 '${REMOTE_TMP}/agent-key.pem' '${REMOTE_DIR}/agent-key.pem'
+    ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "
+        sudo -n install -m 644 '${REMOTE_TMP}/agent-cert.pem' '${REMOTE_DIR}/agent-cert.pem' &&
+        sudo -n install -m 600 '${REMOTE_TMP}/agent-key.pem' '${REMOTE_DIR}/agent-key.pem'
     "
 fi
 
 echo "[4/4] Verifying remote files..."
-ssh -p "${SSH_PORT}" "${REMOTE}" "ls -l '${REMOTE_DIR}'"
+ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "ls -l '${REMOTE_DIR}'"
 
 echo ""
 echo "Installed ${ROLE} certificates on ${REMOTE}:${REMOTE_DIR}"
