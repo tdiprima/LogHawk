@@ -1,264 +1,147 @@
-# Security Observability Stack
+# LogHawk
 
-Centralize Linux security logs, keep them off the host, and watch them from one place.
+![LogHawk Banner Design](LogHawk-Banner-Design.png)
 
-This stack is still intentionally small, but it now defaults to production-safe basics:
+Centralized security log collection, real-time alerting, and AI-ready incident export for Linux server fleets.
 
-- TLS-encrypted rsyslog forwarding on TCP `6514`
-- mutual certificate validation
-- optional source-subnet firewall allowlisting
-- central retention with configurable rotation
-- forwarding of `auditd` in addition to auth/kernel/cron/syslog
-- a simple pipeline-health check for stale senders
+## When your servers are blind spots
 
-## What This Does
+SSH brute-force attacks, unauthorized sudo escalations, and rogue account creation all leave traces — but only if you're watching. On a fleet of servers, those traces are scattered across dozens of individual `/var/log/auth.log` files with no way to correlate them, no alerting, and no audit trail. By the time you notice something went wrong, the window to respond has already closed.
 
-```text
-[ each server ]  --TLS syslog-->  [ central collector ]
-                                   |-> watch-alerts.py
-                                   |-> search-logs.sh
-                                   |-> export-for-ai.py
-                                   |-> check-log-pipeline.sh
+## What LogHawk does
+
+LogHawk wires your servers into a single, tamper-resistant log pipeline. Each monitored host ships its auth logs to a central collector over mutual TLS so logs can't be spoofed or intercepted in transit. On the collector, a real-time watcher fires color-coded alerts the moment suspicious patterns appear — SSH brute force bursts, root logins, privilege escalation attempts, account changes. For deeper investigation, a set of forensic search shortcuts lets you pivot instantly from "something happened" to "here's every action that IP ever took." When an incident needs human or AI analysis, a single command exports structured JSON plus a ready-to-paste LLM prompt.
+
+Everything runs on standard rsyslog. No agents to maintain, no cloud dependency, no external Python packages.
+
+## Example: catching a brute-force campaign in real time
+
+```
+$ sudo python3 tools/watch-alerts.py --file /var/log/remote/*/auth.log \
+    --json-out /var/log/security-alerts.jsonl \
+    --email security@example.com
+
+[HIGH    ] 2026-04-17T14:22:01+00:00  SSH failed login
+           File: /var/log/remote/web-01/auth.log
+           Log:  Apr 17 14:22:01 web-01 sshd[9823]: Failed password for root from 203.0.113.45
+
+[CRITICAL] 2026-04-17T14:22:03+00:00  Root SSH login
+           File: /var/log/remote/web-01/auth.log
+           Log:  Apr 17 14:22:03 web-01 sshd[9831]: Accepted password for root from 203.0.113.45
 ```
 
-Logs land under `/var/log/remote/<hostname>/` with separate files such as:
+Then pivot to the attacker's full history:
 
-- `auth.log`
-- `audit.log`
-- `kern.log`
-- `cron.log`
-- `syslog.log`
-
-## Repo Layout
-
-```text
-logging-stack/
-├── agent/
-│   ├── install-agent.sh
-│   └── rsyslog-agent.conf
-├── central/
-│   ├── generate-certs.sh
-│   ├── install-central.sh
-│   └── rsyslog-central.conf
-├── docs/
-├── tools/
-│   ├── check-log-pipeline.sh
-│   ├── export-for-ai.py
-│   ├── search-logs.sh
-│   └── watch-alerts.py
-└── README.md
+```
+$ ./tools/search-logs.sh from-ip 203.0.113.45
 ```
 
-## Recommended Setup
+Then export everything for AI triage:
 
-### 1. Keep clocks in sync
+```
+$ sudo python3 tools/export-for-ai.py --hours 2 --llm-prompt | pbcopy
+# Paste directly into Claude or ChatGPT
+```
 
-Centralized logs are much less useful if timestamps drift.
+## Usage
 
-Install and enable:
+### 1. Generate mTLS certificates
+
+Run once on any machine with `openssl`. Generates a private CA plus server and per-agent client certificates.
 
 ```bash
-sudo apt install chrony
-sudo systemctl enable --now chronyd
-```
-
-### 2. Generate a private CA and certificates
-
-On the machine where you are preparing the rollout:
-
-```bash
-chmod +x central/generate-certs.sh
 ./central/generate-certs.sh \
-  --server-name log-server.example.com \
-  --server-address 10.0.0.10 \
-  --client-name web-01 \
-  --client-name db-01
+    --server-name log-server.example.com \
+    --server-address 10.0.0.10 \
+    --client-name web-01 \
+    --client-name db-01
 ```
 
-This creates:
+Copy the CA cert and the appropriate client cert/key pair to each agent host before installing.
 
-- `central/certs/ca/ca-cert.pem`
-- `central/certs/server/server-cert.pem`
-- `central/certs/server/server-key.pem`
-- `central/certs/clients/<hostname>/client-cert.pem`
-- `central/certs/clients/<hostname>/client-key.pem`
+### 2. Set up the central collector
 
-Copy:
-
-- the CA certificate to every machine
-- the server cert/key to the collector
-- one client cert/key pair to each agent
-
-Suggested destination on each host:
-
-```text
-/etc/rsyslog.d/certs/
-```
-
-To copy the generated files over `ssh`/`scp` and install them into that directory:
-
-```bash
-./central/copy-certs.sh log-server.example.com --role collector
-./central/copy-certs.sh web-01.example.com --role agent --client-name web-01
-```
-
-Notes:
-
-- The required positional argument is the target host IP or DNS name.
-- `--role collector` copies `logging-ca.pem`, `server-cert.pem`, and `server-key.pem`.
-- `--role agent` copies `logging-ca.pem`, `agent-cert.pem`, and `agent-key.pem`.
-- For agents, `--client-name` must match the name used with `generate-certs.sh --client-name ...`.
-- The script assumes the remote SSH user can run `sudo` to write `/etc/rsyslog.d/certs/`.
-
-To add one more agent later without replacing the server certificate:
-
-```bash
-./central/generate-client-cert.sh --client-name app-01
-./central/copy-certs.sh app-01.example.com --role agent --client-name app-01
-```
-
-Notes:
-
-- `generate-client-cert.sh` requires an existing `central/certs/ca/ca-key.pem` and `central/certs/ca/ca-cert.pem`.
-- It only creates or replaces `central/certs/clients/<client-name>/`.
-- Use `--force` if you intentionally want to reissue a certificate for an existing client name.
-
-### 3. Install the central collector
-
-On the log server:
+Run on the server that will receive logs from all other hosts.
 
 ```bash
 sudo ./central/install-central.sh \
-  --port 6514 \
-  --allow-from 10.0.0.0/24 \
-  --allow-from 192.168.1.0/24 \
-  --tls-ca /etc/rsyslog.d/certs/logging-ca.pem \
-  --tls-cert /etc/rsyslog.d/certs/server-cert.pem \
-  --tls-key /etc/rsyslog.d/certs/server-key.pem \
-  --retention-days 90
+    --allow-from 10.0.0.0/24 \
+    --retention-days 90
 ```
 
-Notes:
+Installs rsyslog, configures TLS reception on port 6514, sets up log rotation, and opens the firewall.
 
-- `--allow-from` is strongly recommended.
-- Repeat `--allow-from` to allow multiple source CIDRs/IPs.
-- If you omit `--allow-from`, the script opens the TLS port to any source.
-- Retention is configurable; default is `90` days.
+### 3. Install the forwarding agent
 
-### 4. Install each agent
-
-On every monitored host:
+Run on each server you want to monitor.
 
 ```bash
-sudo ./agent/install-agent.sh 10.0.0.10 \
-  --server-name log-server.example.com \
-  --port 6514 \
-  --tls-ca /etc/rsyslog.d/certs/logging-ca.pem \
-  --tls-cert /etc/rsyslog.d/certs/agent-cert.pem \
-  --tls-key /etc/rsyslog.d/certs/agent-key.pem
+sudo ./agent/install-agent.sh log-server.example.com \
+    --server-name log-server.example.com
 ```
 
-The positional argument is where the agent connects.
+Installs rsyslog, drops the forwarding config, and verifies the TCP connection to the collector.
 
-`--server-name` must match the collector certificate name or SAN used in TLS validation.
-
-## Daily Operations
-
-Watch all remote auth logs:
+### 4. Watch for alerts in real time
 
 ```bash
-sudo python3 tools/watch-alerts.py --file '/var/log/remote/*/auth.log'
+# Local auth log
+sudo python3 tools/watch-alerts.py
+
+# All remote hosts on the central server
+sudo python3 tools/watch-alerts.py --file /var/log/remote/*/auth.log
+
+# With email alerts for CRITICAL/HIGH events
+sudo python3 tools/watch-alerts.py --email security@example.com
 ```
 
-Persist alert records:
+### 5. Search logs during an investigation
 
 ```bash
-sudo python3 tools/watch-alerts.py \
-  --file '/var/log/remote/*/auth.log' \
-  --json-out /var/log/security-alerts.jsonl
+# All SSH failures across the fleet
+./tools/search-logs.sh ssh-fails
+
+# SSH failures on one specific host
+./tools/search-logs.sh ssh-fails web-01
+
+# Everything logged from a suspicious IP
+./tools/search-logs.sh from-ip 203.0.113.45
+
+# Sudo command history
+./tools/search-logs.sh sudo-commands
+
+# User or group creation/deletion events
+./tools/search-logs.sh new-accounts
 ```
 
-Search centrally:
+### 6. Check pipeline health
+
+Identify hosts that have stopped sending logs.
 
 ```bash
-sudo ./tools/search-logs.sh ssh-fails
-sudo ./tools/search-logs.sh ssh-fails web-server-01
-sudo ./tools/search-logs.sh from-ip 185.220.101.5
-sudo ./tools/search-logs.sh sudo-commands
-sudo ./tools/search-logs.sh new-accounts
-sudo ./tools/search-logs.sh last-logins
+./tools/check-log-pipeline.sh --minutes 15
 ```
 
-Check for stale senders:
+### 7. Export for AI-assisted analysis
 
 ```bash
-sudo ./tools/check-log-pipeline.sh --minutes 15
+# Last 2 hours, LLM-ready prompt to stdout
+sudo python3 tools/export-for-ai.py --llm-prompt
+
+# Last 24 hours for a specific host, saved to file
+sudo python3 tools/export-for-ai.py --hours 24 --host web-01 --out incident.json
 ```
 
-Export recent suspicious events for triage:
+## Requirements
 
-```bash
-sudo python3 tools/export-for-ai.py --hours 4 --llm-prompt --out /tmp/ask-ai.txt
-```
+- Linux: Ubuntu/Debian or RHEL/CentOS/Rocky
+- Python 3.9+ (stdlib only — no pip installs needed)
+- `openssl` for certificate generation
+- `rsyslog` (installed automatically by the setup scripts)
+- Local MTA (e.g. postfix) if using email alerting
 
-## What Is Collected
+## License
 
-Agents forward:
+[MIT](LICENSE)
 
-- `auth` / `authpriv`
-- `kern`
-- `cron`
-- `daemon`
-- `syslog`
-- `auditd` via `/var/log/audit/audit.log`
-
-This is still host-log focused. It does not automatically ingest app logs, cloud control-plane logs, or identity-provider logs.
-
-## Current Security Posture
-
-This repo now covers the main centralized-logging baseline:
-
-- off-host copies of security-relevant Linux logs
-- encrypted transport
-- certificate-based authentication
-- local queueing on agents during collector outages
-- source-restricted firewalling when configured
-- configurable retention
-- basic stale-sender monitoring
-
-Still missing if you want a fuller production program:
-
-- immutable/offsite archive
-- structured application logging and trace correlation
-- ingestion/drop-rate dashboards
-- alerting on collector resource pressure
-- richer detections beyond regexes over auth/audit/syslog
-
-## Troubleshooting
-
-Collector not receiving logs:
-
-1. Check rsyslog status: `systemctl status rsyslog`
-2. Check the listener config: `cat /etc/rsyslog.d/10-security-central.conf`
-3. Check the TLS files exist and are readable by rsyslog
-4. Check the agent can reach TCP `6514`
-5. Check the agent certificate chains to the same CA as the collector
-
-Agent not forwarding:
-
-1. Check the generated config: `cat /etc/rsyslog.d/99-security-forward.conf`
-2. Check `journalctl -u rsyslog --no-pager -n 50`
-3. Confirm `--server-name` matches the collector certificate identity
-4. Confirm `/var/log/audit/audit.log` exists if you expect auditd forwarding
-
-No logs found by the watcher:
-
-```bash
-sudo python3 tools/watch-alerts.py --file /var/log/auth.log
-# or on RHEL-family systems:
-sudo python3 tools/watch-alerts.py --file /var/log/secure
-```
-
-## Next
-
-Read [docs/spot-weirdness.md](/Users/tdiprima/Documents/trabajo/logging-stack/docs/spot-weirdness.md) for investigation patterns and response ideas.
+<br>
