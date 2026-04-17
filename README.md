@@ -1,5 +1,3 @@
-# LogHawk
-
 ![LogHawk Banner Design](LogHawk-Banner-Design.png)
 
 Centralized security log collection, real-time alerting, and AI-ready incident export for Linux server fleets.
