@@ -58,6 +58,21 @@ sudo ./agent/install-agent.sh log-server.example.com \
 
 Installs rsyslog, drops the forwarding config, and verifies the TCP connection to the collector.
 
+**If editing `agent/rsyslog-agent.conf` or `agent/install-agent.sh` directly**, replace the two placeholders:
+
+| Placeholder | Replace with |
+|---|---|
+| `CENTRAL_LOG_SERVER` | IP address of your central logging server |
+| `CENTRAL_PERMITTED_PEER` | Domain name in the server certificate's CN/SAN |
+
+To look up the correct peer name from the server cert:
+
+```bash
+openssl x509 -in /etc/rsyslog.d/certs/server-cert.pem -noout -subject
+```
+
+Use the `CN=` value (e.g. `log-server.example.com`) as `CENTRAL_PERMITTED_PEER`. The `install-agent.sh` script substitutes these automatically when you pass the server address and `--server-name`.
+
 ### 5. Watch for alerts in real time
 
 ```bash
