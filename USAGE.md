@@ -1,32 +1,3 @@
-## Example: catching a brute-force campaign in real time
-
-```
-$ sudo python3 tools/watch-alerts.py --file /var/log/remote/*/auth.log \
-    --json-out /var/log/security-alerts.jsonl \
-    --email security@example.com
-
-[HIGH    ] 2026-04-17T14:22:01+00:00  SSH failed login
-           File: /var/log/remote/web-01/auth.log
-           Log:  Apr 17 14:22:01 web-01 sshd[9823]: Failed password for root from 203.0.113.45
-
-[CRITICAL] 2026-04-17T14:22:03+00:00  Root SSH login
-           File: /var/log/remote/web-01/auth.log
-           Log:  Apr 17 14:22:03 web-01 sshd[9831]: Accepted password for root from 203.0.113.45
-```
-
-Then pivot to the attacker's full history:
-
-```
-$ ./tools/search-logs.sh from-ip 203.0.113.45
-```
-
-Then export everything for AI triage:
-
-```
-$ sudo python3 tools/export-for-ai.py --hours 2 --llm-prompt | pbcopy
-# Paste directly into Claude or ChatGPT
-```
-
 ## Usage
 
 ### 1. Generate mTLS certificates
@@ -114,6 +85,35 @@ sudo python3 tools/export-for-ai.py --llm-prompt
 
 # Last 24 hours for a specific host, saved to file
 sudo python3 tools/export-for-ai.py --hours 24 --host web-01 --out incident.json
+```
+
+## Example: catching a brute-force campaign in real time
+
+```
+$ sudo python3 tools/watch-alerts.py --file /var/log/remote/*/auth.log \
+    --json-out /var/log/security-alerts.jsonl \
+    --email security@example.com
+
+[HIGH    ] 2026-04-17T14:22:01+00:00  SSH failed login
+           File: /var/log/remote/web-01/auth.log
+           Log:  Apr 17 14:22:01 web-01 sshd[9823]: Failed password for root from 203.0.113.45
+
+[CRITICAL] 2026-04-17T14:22:03+00:00  Root SSH login
+           File: /var/log/remote/web-01/auth.log
+           Log:  Apr 17 14:22:03 web-01 sshd[9831]: Accepted password for root from 203.0.113.45
+```
+
+Then pivot to the attacker's full history:
+
+```sh
+$ ./tools/search-logs.sh from-ip 203.0.113.45
+```
+
+Then export everything for AI triage:
+
+```sh
+$ sudo python3 tools/export-for-ai.py --hours 2 --llm-prompt | pbcopy
+# Paste directly into Claude or ChatGPT
 ```
 
 ## Requirements
