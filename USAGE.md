@@ -26,7 +26,28 @@ sudo ./central/install-central.sh \
 
 Installs rsyslog, configures TLS reception on port 6514, sets up log rotation, and opens the firewall.
 
-### 3. Install the forwarding agent
+### 3. Set up the log server as a forwarding agent
+
+The log server itself also runs the forwarding agent. After deploying
+`agent/rsyslog-agent.conf` to `/etc/rsyslog.d/99-security-forward.conf` on the
+log server, two edits are required to avoid conflicts with the central config:
+
+1. **Remove the `global()` block** (lines starting with `global(` through the
+   closing `)`) — the central config already sets these TLS globals.
+2. **Remove the two module lines** that load `imuxsock` and `imklog` — they are
+   already loaded by the default `rsyslog.conf`.
+
+Also set correct ownership and permissions on the certs directory so rsyslog
+can read them:
+
+```bash
+sudo chown root:syslog /etc/rsyslog.d/certs/*.pem
+sudo chmod 640 /etc/rsyslog.d/certs/*.pem
+```
+
+Then restart: `sudo systemctl restart rsyslog`
+
+### 4. Install the forwarding agent
 
 Run on each server you want to monitor.
 
@@ -37,7 +58,7 @@ sudo ./agent/install-agent.sh log-server.example.com \
 
 Installs rsyslog, drops the forwarding config, and verifies the TCP connection to the collector.
 
-### 4. Watch for alerts in real time
+### 5. Watch for alerts in real time
 
 ```bash
 # Local auth log
@@ -50,7 +71,7 @@ sudo python3 tools/watch-alerts.py --file /var/log/remote/*/auth.log
 sudo python3 tools/watch-alerts.py --email security@example.com
 ```
 
-### 5. Search logs during an investigation
+### 6. Search logs during an investigation
 
 ```bash
 # All SSH failures across the fleet
@@ -69,7 +90,7 @@ sudo python3 tools/watch-alerts.py --email security@example.com
 ./tools/search-logs.sh new-accounts
 ```
 
-### 6. Check pipeline health
+### 7. Check pipeline health
 
 Identify hosts that have stopped sending logs.
 
@@ -77,7 +98,7 @@ Identify hosts that have stopped sending logs.
 ./tools/check-log-pipeline.sh --minutes 15
 ```
 
-### 7. Export for AI-assisted analysis
+### 8. Export for AI-assisted analysis
 
 ```bash
 # Last 2 hours, LLM-ready prompt to stdout
