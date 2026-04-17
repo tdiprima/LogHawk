@@ -68,7 +68,7 @@ fi
 umask 077
 
 CA_KEY="${OUT_DIR}/ca/ca-key.pem"
-CA_CERT="${OUT_DIR}/ca/ca-cert.pem"
+CA_CERT="${OUT_DIR}/ca/logging-ca.pem"
 CLIENT_DIR="${OUT_DIR}/clients/${CLIENT_NAME}"
 CLIENT_KEY="${CLIENT_DIR}/client-key.pem"
 CLIENT_CSR="${CLIENT_DIR}/client.csr"

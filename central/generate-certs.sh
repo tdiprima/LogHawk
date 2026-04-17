@@ -77,7 +77,7 @@ mkdir -p "${OUT_DIR}"/{ca,server,clients}
 umask 077
 
 CA_KEY="${OUT_DIR}/ca/ca-key.pem"
-CA_CERT="${OUT_DIR}/ca/ca-cert.pem"
+CA_CERT="${OUT_DIR}/ca/logging-ca.pem"
 
 if [[ ! -f "${CA_KEY}" || ! -f "${CA_CERT}" ]]; then
     openssl genrsa -out "${CA_KEY}" 4096 >/dev/null 2>&1

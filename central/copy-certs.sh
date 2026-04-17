@@ -111,7 +111,7 @@ if ! command -v scp >/dev/null 2>&1; then
     exit 2
 fi
 
-CA_CERT="${OUT_DIR}/ca/ca-cert.pem"
+CA_CERT="${OUT_DIR}/ca/logging-ca.pem"
 declare -a SOURCE_FILES=()
 declare -a DEST_FILES=()
 
