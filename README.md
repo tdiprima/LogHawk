@@ -122,9 +122,9 @@ into this:
 
 > I see what's happening, right now, and I know where to look next
 
-## Usage
+## Documentation
 
-[USAGE](USAGE.md)
+Check the [docs](./docs) folder.
 
 ## License
 
