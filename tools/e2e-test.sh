@@ -15,5 +15,5 @@ grep "testuser" /var/log/remote/$(hostname)/auth.log
 ./search-logs.sh ssh-fails
 
 # 5. Export and verify event count > 0
-sudo python3 tools/export-for-ai.py --hours 1 | python3 -c \
+sudo python3 export-for-ai.py --hours 1 | python3 -c \
   "import json,sys; d=json.load(sys.stdin); print('Events:', d['summary']['total_events'])"
