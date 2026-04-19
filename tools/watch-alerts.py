@@ -278,22 +278,28 @@ def process_line(line: str, source_file: str, json_out_handle, email_recipient: 
 
 # ── Main ──────────────────────────────────────────────────────────────
 
-def resolve_log_files(file_pattern: str) -> list[str]:
+def resolve_log_files(file_patterns: list[str]) -> list[str]:
     """Expand glob patterns and return matching file paths."""
-    paths = glob.glob(file_pattern)
+    paths = []
+    for pattern in file_patterns:
+        matched = glob.glob(pattern)
+        if matched:
+            paths.extend(matched)
+        elif os.path.exists(pattern):
+            paths.append(pattern)
+
     if not paths:
-        # Also try OS-specific default locations
         candidates = [
-            "/var/log/auth.log",       # Ubuntu/Debian
-            "/var/log/secure",         # RHEL/CentOS/Rocky
-            "/var/log/messages",       # RHEL fallback
+            "/var/log/auth.log",   # Ubuntu/Debian
+            "/var/log/secure",     # RHEL/CentOS/Rocky
+            "/var/log/messages",   # RHEL fallback
         ]
         for candidate in candidates:
             if os.path.exists(candidate):
                 paths.append(candidate)
 
     if not paths:
-        log.error("No log files found at: %s", file_pattern)
+        log.error("No log files found at: %s", file_patterns)
         sys.exit(1)
 
     return paths
@@ -305,11 +311,12 @@ def main():
     )
     parser.add_argument(
         "--file",
-        default="/var/log/auth.log",
+        nargs="+",
+        default=["/var/log/auth.log"],
         help=(
-            "Log file to watch. Supports glob: '/var/log/remote/*/auth.log'. "
-            "Local defaults are /var/log/auth.log on Ubuntu/Debian and "
-            "/var/log/secure on RHEL-family systems."
+            "Log file(s) to watch. Supports globs (quote to prevent shell expansion): "
+            "'/var/log/remote/*/auth.log'. Also accepts shell-expanded paths. "
+            "Defaults to /var/log/auth.log (Ubuntu/Debian) or /var/log/secure (RHEL)."
         ),
     )
     parser.add_argument(
@@ -325,7 +332,7 @@ def main():
     )
     args = parser.parse_args()
 
-    log_files = resolve_log_files(args.file)
+    log_files = resolve_log_files(args.file)  # args.file is already a list via nargs='+'
 
     json_out_handle = None
     if args.json_out:
