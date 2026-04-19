@@ -1,6 +1,12 @@
 ## Usage
 
-### 1. Generate mTLS certificates
+### 1. Set environment variable
+
+```sh
+export LOG_BASE="/var/log/remote"
+```
+
+### 2. Generate mTLS certificates
 
 Run once on any machine with `openssl`. Generates a private CA plus server and per-agent client certificates.
 
@@ -14,7 +20,7 @@ Run once on any machine with `openssl`. Generates a private CA plus server and p
 
 Copy the CA cert and the appropriate client cert/key pair to each agent host before installing.
 
-### 2. Set up the central collector
+### 3. Set up the central collector
 
 Run on the server that will receive logs from all other hosts.
 
@@ -26,7 +32,7 @@ sudo ./central/install-central.sh \
 
 Installs rsyslog, configures TLS reception on port 6514, sets up log rotation, and opens the firewall.
 
-### 3. Set up the log server as a forwarding agent
+### 4. Set up the log server as a forwarding agent
 
 The log server itself also runs the forwarding agent. After deploying
 `agent/rsyslog-agent.conf` to `/etc/rsyslog.d/99-security-forward.conf` on the
@@ -47,7 +53,7 @@ sudo chmod 640 /etc/rsyslog.d/certs/*.pem
 
 Then restart: `sudo systemctl restart rsyslog`
 
-### 4. Install the forwarding agent
+### 5. Install the forwarding agent
 
 Run on each server you want to monitor.
 
@@ -73,7 +79,7 @@ openssl x509 -in /etc/rsyslog.d/certs/server-cert.pem -noout -subject
 
 Use the `CN=` value (e.g. `log-server.example.com`) as `CENTRAL_PERMITTED_PEER`. The `install-agent.sh` script substitutes these automatically when you pass the server address and `--server-name`.
 
-### 5. Watch for alerts in real time
+### 6. Watch for alerts in real time
 
 ```bash
 # Local auth log
@@ -86,7 +92,7 @@ sudo python3 tools/watch-alerts.py --file /var/log/remote/*/auth.log
 sudo python3 tools/watch-alerts.py --email security@example.com
 ```
 
-### 6. Search logs during an investigation
+### 7. Search logs during an investigation
 
 ```bash
 # All SSH failures across the fleet
@@ -105,7 +111,7 @@ sudo python3 tools/watch-alerts.py --email security@example.com
 ./tools/search-logs.sh new-accounts
 ```
 
-### 7. Check pipeline health
+### 8. Check pipeline health
 
 Identify hosts that have stopped sending logs.
 
@@ -113,7 +119,7 @@ Identify hosts that have stopped sending logs.
 ./tools/check-log-pipeline.sh --minutes 15
 ```
 
-### 8. Export for AI-assisted analysis
+### 9. Export for AI-assisted analysis
 
 ```bash
 # Last 2 hours, LLM-ready prompt to stdout

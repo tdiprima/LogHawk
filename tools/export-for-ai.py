@@ -26,6 +26,7 @@ import glob
 import json
 import os
 import re
+import socket
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -90,9 +91,21 @@ def parse_syslog_timestamp(line: str) -> datetime | None:
 
 # ── Log extraction ────────────────────────────────────────────────────
 
-def extract_events(log_file: str, since: datetime) -> list[dict]:
+def derive_source_host(log_file: str, log_base: str) -> str:
+    """Extract hostname from log path. Remote logs live under log_base/<hostname>/; local logs use this machine's hostname."""
+    path = Path(log_file)
+    base = Path(log_base)
+    try:
+        relative = path.relative_to(base)
+        return relative.parts[0]  # first component is the remote hostname
+    except ValueError:
+        return socket.gethostname()
+
+
+def extract_events(log_file: str, since: datetime, log_base: str) -> list[dict]:
     """Read a log file and return suspicious events newer than `since`."""
     events = []
+    source_host = derive_source_host(log_file, log_base)
 
     try:
         with open(log_file, "r", errors="replace") as fh:
@@ -105,6 +118,7 @@ def extract_events(log_file: str, since: datetime) -> list[dict]:
                     if compiled_pattern.search(line):
                         events.append({
                             "timestamp": ts.isoformat() if ts else None,
+                            "source_host": source_host,
                             "source_file": log_file,
                             "severity": severity,
                             "description": description,
@@ -252,7 +266,7 @@ def main():
 
     all_events: list[dict] = []
     for log_file in log_files:
-        events = extract_events(log_file, since)
+        events = extract_events(log_file, since, args.log_base)
         all_events.extend(events)
         print(f"  {log_file}: {len(events)} events", file=sys.stderr)
 
