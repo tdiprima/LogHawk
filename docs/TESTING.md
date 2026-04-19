@@ -281,7 +281,8 @@ sudo python3 tools/export-for-ai.py --log-base /tmp/nonexistent --hours 1
 
 ## 9. Full End-to-End Scenario
 
-Run this on a fresh install to confirm the entire pipeline works:
+Run this on a fresh install to confirm the entire pipeline works.  
+READ EACH COMMENT BEFORE EXECUTING.
 
 ```sh
 # 1. Inject known-bad lines on each agent
