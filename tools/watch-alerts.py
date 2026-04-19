@@ -36,7 +36,9 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from contextlib import suppress
 from datetime import datetime, timezone
+from pathlib import Path
 from email.message import EmailMessage
 
 # ── Logging setup ─────────────────────────────────────────────────────
@@ -245,15 +247,13 @@ def tail_file(filepath: str, json_out_handle, email_recipient: str | None):
             time.sleep(0.2)
 
             # Check for log rotation: file replaced or truncated
-            try:
-                new_stat = os.stat(filepath)
+            with suppress(OSError):
+                new_stat = Path(filepath).stat()
                 if new_stat.st_ino != inode or new_stat.st_size < file_handle.tell():
                     log.info("Log rotated: %s — reopening.", filepath)
                     file_handle.close()
                     file_handle = open(filepath, "r", errors="replace")
                     inode = os.fstat(file_handle.fileno()).st_ino
-            except OSError:
-                pass  # File temporarily missing during rotation, retry next tick
 
 
 def process_line(line: str, source_file: str, json_out_handle, email_recipient: str | None):
@@ -285,7 +285,7 @@ def resolve_log_files(file_patterns: list[str]) -> list[str]:
         matched = glob.glob(pattern)
         if matched:
             paths.extend(matched)
-        elif os.path.exists(pattern):
+        elif Path(pattern).exists():
             paths.append(pattern)
 
     if not paths:
@@ -295,7 +295,7 @@ def resolve_log_files(file_patterns: list[str]) -> list[str]:
             "/var/log/messages",   # RHEL fallback
         ]
         for candidate in candidates:
-            if os.path.exists(candidate):
+            if Path(candidate).exists():
                 paths.append(candidate)
 
     if not paths:

@@ -28,6 +28,7 @@ import os
 import re
 import socket
 import sys
+from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -76,14 +77,12 @@ def parse_syslog_timestamp(line: str) -> datetime | None:
     """Parse ISO 8601 or traditional syslog timestamp from a log line. Returns UTC datetime or None."""
     iso_match = _ISO_TS_PATTERN.match(line)
     if iso_match:
-        try:
+        with suppress(ValueError):
             return datetime.fromisoformat(iso_match.group(1).replace("Z", "+00:00"))
-        except ValueError:
-            pass
 
     trad_match = _TRAD_TS_PATTERN.match(line)
     if trad_match:
-        try:
+        with suppress(ValueError):
             now = datetime.now(timezone.utc)
             raw = f"{trad_match.group(1)} {now.year}"
             dt = datetime.strptime(raw, "%b %d %H:%M:%S %Y").replace(tzinfo=timezone.utc)
@@ -91,8 +90,6 @@ def parse_syslog_timestamp(line: str) -> datetime | None:
             if dt - now > timedelta(days=1):
                 dt = dt.replace(year=dt.year - 1)
             return dt
-        except ValueError:
-            pass
 
     return None
 
@@ -155,11 +152,11 @@ def find_log_files(log_base: str, hostname_filter: str | None) -> list[str]:
     # double-counting when the central server also forwards its own logs.
     local_hostname = socket.gethostname()
     remote_copy = os.path.join(log_base, local_hostname, "auth.log")
-    already_covered = os.path.exists(remote_copy)
+    already_covered = Path(remote_copy).exists()
 
     if not already_covered:
-        for candidate in ["/var/log/auth.log", "/var/log/secure"]:
-            if os.path.exists(candidate):
+        for candidate in ("/var/log/auth.log", "/var/log/secure"):
+            if Path(candidate).exists():
                 files.append(candidate)
 
     return files
