@@ -63,30 +63,38 @@ COMPILED_PATTERNS = [
 ]
 
 # ── Timestamp parsing ─────────────────────────────────────────────────
-# syslog format: "Apr 15 14:23:01"
-SYSLOG_TS_PATTERN = re.compile(
+# ISO 8601: "2026-04-19T14:23:01.123456+00:00" or "2026-04-19T14:23:01+00:00"
+_ISO_TS_PATTERN = re.compile(
+    r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))"
+)
+# Traditional syslog: "Apr 15 14:23:01"
+_TRAD_TS_PATTERN = re.compile(
     r"^(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"
 )
+
 def parse_syslog_timestamp(line: str) -> datetime | None:
-    """Parse syslog-format timestamp from a log line. Returns UTC datetime or None."""
-    match = SYSLOG_TS_PATTERN.match(line)
-    if not match:
-        return None
+    """Parse ISO 8601 or traditional syslog timestamp from a log line. Returns UTC datetime or None."""
+    iso_match = _ISO_TS_PATTERN.match(line)
+    if iso_match:
+        try:
+            return datetime.fromisoformat(iso_match.group(1).replace("Z", "+00:00"))
+        except ValueError:
+            pass
 
-    try:
-        now = datetime.now(timezone.utc)
-        raw = f"{match.group(1)} {now.year}"
-        dt = datetime.strptime(raw, "%b %d %H:%M:%S %Y")
-        dt = dt.replace(tzinfo=timezone.utc)
+    trad_match = _TRAD_TS_PATTERN.match(line)
+    if trad_match:
+        try:
+            now = datetime.now(timezone.utc)
+            raw = f"{trad_match.group(1)} {now.year}"
+            dt = datetime.strptime(raw, "%b %d %H:%M:%S %Y").replace(tzinfo=timezone.utc)
+            # Traditional syslog omits year — roll back if timestamp is in the future.
+            if dt - now > timedelta(days=1):
+                dt = dt.replace(year=dt.year - 1)
+            return dt
+        except ValueError:
+            pass
 
-        # Syslog timestamps omit the year. If the parsed timestamp lands too far
-        # in the future, treat it as belonging to the previous year.
-        if dt - now > timedelta(days=1):
-            dt = dt.replace(year=dt.year - 1)
-
-        return dt
-    except ValueError:
-        return None
+    return None
 
 
 # ── Log extraction ────────────────────────────────────────────────────
