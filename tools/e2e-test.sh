@@ -9,10 +9,10 @@ sleep 10
 grep "testuser" /var/log/remote/$(hostname)/auth.log
 
 # 3. Confirm pipeline is fresh
-./tools/check-log-pipeline.sh --minutes 5
+./check-log-pipeline.sh --minutes 5
 
 # 4. Confirm search works
-./tools/search-logs.sh ssh-fails
+./search-logs.sh ssh-fails
 
 # 5. Export and verify event count > 0
 sudo python3 tools/export-for-ai.py --hours 1 | python3 -c \
