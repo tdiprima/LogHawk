@@ -151,7 +151,7 @@ for path in "${SOURCE_FILES[@]}"; do
 done
 
 REMOTE="${REMOTE_USER}@${HOST}"
-REMOTE_TMP="/tmp/logging-stack-certs.$$"
+REMOTE_TMP="/tmp/log-hawk-certs.$$"
 
 echo "[0/4] Validating SSH and sudo access to ${REMOTE}..."
 ssh -tt -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "sudo -v"

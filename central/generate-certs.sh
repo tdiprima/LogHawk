@@ -85,7 +85,7 @@ if [[ ! -f "${CA_KEY}" || ! -f "${CA_CERT}" ]]; then
         -key "${CA_KEY}" \
         -sha256 \
         -days 3650 \
-        -subj "/CN=logging-stack-ca" \
+        -subj "/CN=log-hawk-ca" \
         -out "${CA_CERT}" >/dev/null 2>&1
 fi
 
