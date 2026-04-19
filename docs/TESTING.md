@@ -14,7 +14,7 @@ End-to-end verification after installing the central collector and each agent.
 6. **watch-alerts.py** — inject per severity, brute-force thresholds, JSON output, log rotation handled
 7. **search-logs.sh** — all commands tested + error paths hit
 8. **export-for-ai.py** — JSON export, host filter, file output, LLM-ready prompt, missing-path error handled
-9. **Full E2E scenario** — e2e-test.sh, whole flow validated
+9. **Full E2E scenario** — copy-paste code, whole flow validated
 10. **Negative/security tests** — wrong cert, no cert, raw TCP, bad paths (all the cursed cases)
 11. **Quick checklist** — post-install sanity check so nothing's silently broken
 
@@ -273,7 +273,25 @@ sudo python3 tools/export-for-ai.py --log-base /tmp/nonexistent --hours 1
 
 Run this on a fresh install to confirm the entire pipeline works:
 
-[e2e-test.sh](../tools/e2e-test.sh)
+```sh
+# 1. Inject known-bad lines on each agent
+logger -p auth.info "Failed password for invalid user testuser from 192.0.2.1 port 22 ssh2"
+logger -p auth.info "sudo: testuser : TTY=pts/0 ; COMMAND=/usr/bin/cat /etc/shadow"
+
+# 2. Wait 10 seconds, then check central received them
+sleep 10
+grep "testuser" /var/log/remote/$(hostname)/auth.log
+
+# 3. Confirm pipeline is fresh
+./tools/check-log-pipeline.sh --minutes 5
+
+# 4. Confirm search works
+./tools/search-logs.sh ssh-fails
+
+# 5. Export and verify event count > 0
+sudo python3 tools/export-for-ai.py --hours 1 | python3 -c \
+  "import json,sys; d=json.load(sys.stdin); print('Events:', d['summary']['total_events'])"
+```
 
 ## 10. Negative / Security Tests
 
