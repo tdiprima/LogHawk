@@ -151,10 +151,16 @@ def find_log_files(log_base: str, hostname_filter: str | None) -> list[str]:
     else:
         files.extend(glob.glob(os.path.join(log_base, "*/auth.log")))
 
-    # Always include local auth log
-    for candidate in ["/var/log/auth.log", "/var/log/secure"]:
-        if os.path.exists(candidate):
-            files.append(candidate)
+    # Skip local auth log if remote copy already exists for this host — avoids
+    # double-counting when the central server also forwards its own logs.
+    local_hostname = socket.gethostname()
+    remote_copy = os.path.join(log_base, local_hostname, "auth.log")
+    already_covered = os.path.exists(remote_copy)
+
+    if not already_covered:
+        for candidate in ["/var/log/auth.log", "/var/log/secure"]:
+            if os.path.exists(candidate):
+                files.append(candidate)
 
     return files
 
