@@ -160,17 +160,20 @@ echo "Apr 18 12:00:01 web-01 sshd[9999]: Failed password for root from 10.0.0.99
   | sudo tee -a /var/log/remote/web-01/auth.log
 
 # In another terminal, already running:
-sudo python3 tools/watch-alerts.py --file /var/log/remote/*/auth.log
+sudo python3 watch-alerts.py --file /var/log/remote/*/auth.log
+# OR
+sudo python3 watch-alerts.py --file '/var/log/remote/*/auth.log'
 ```
 
 Expected output for the injected line:
+
 - `[HIGH    ]` for `Failed password for root` (SSH failed login)
 - If you inject `Accepted password for root from ...` → `[CRITICAL]`
 
 **Brute force threshold test** — inject 5 failures from same IP within 60 seconds:
 
 ```bash
-for i in $(seq 1 5); do
+for i in $(seq 1 6); do
   echo "Apr 18 12:00:0${i} web-01 sshd[100${i}]: Failed password for invalid user admin from 198.51.100.1 port 22 ssh2" \
     | sudo tee -a /var/log/remote/web-01/auth.log
 done
@@ -183,8 +186,15 @@ done
 sudo python3 tools/watch-alerts.py \
   --file /var/log/remote/web-01/auth.log \
   --json-out /tmp/test-alerts.jsonl &
-# Inject a test line, then:
-cat /tmp/test-alerts.jsonl | python3 -m json.tool
+
+# Inject a test line...
+echo "Apr 19 15:22:01 db-01 sudo[4821]: pam_unix(sudo:auth): authentication failure; logname=deploy uid=1002 euid=0 tty=/dev/pts/1 ruser=deploy rhost= user=deploy" | sudo tee -a /var/log/remote/web-01/auth.log
+
+# Then:
+jq . /tmp/test-alerts.jsonl
+# OR without jq:
+while IFS= read -r line; do echo "$line" | python3 -m json.tool; echo; done < /tmp/test-alerts.jsonl
+
 # Verify: timestamp, severity, description, category, raw_line all present
 ```
 
