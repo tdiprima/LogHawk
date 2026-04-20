@@ -206,7 +206,7 @@ EOF
 
 echo "[5/5] Configuring firewall for TCP ${TLS_PORT}..."
 if command -v ufw &>/dev/null && ! ufw status | grep -q "Status: active"; then
-    echo "WARNING: ufw is installed but not active. Enable it manually and re-run, or allow TCP ${TLS_PORT} yourself." >&2
+    echo "WARNING: ufw is installed but not active. Enable it manually and re-run (because 'ufw enable' is interactive), or allow TCP ${TLS_PORT} yourself." >&2
 elif command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
     if [[ "${#ALLOW_FROM[@]}" -gt 0 ]]; then
         for cidr in "${ALLOW_FROM[@]}"; do
