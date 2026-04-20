@@ -27,36 +27,11 @@ import json
 import os
 import re
 import socket
+from alert_patterns import ALERT_PATTERNS
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-
-# ── Alert patterns (same as watch-alerts.py) ─────────────────────────
-ALERT_PATTERNS = [
-    (r"Failed password for (?:invalid user )?(\S+) from ([\d.]+)",
-     "HIGH", "SSH failed login", "brute_force"),
-    (r"Accepted (?:password|publickey) for (\S+) from ([\d.]+)",
-     "INFO", "SSH successful login", "auth_success"),
-    (r"Accepted .+ for root from ([\d.]+)",
-     "CRITICAL", "Root SSH login", "root_login"),
-    (r"sudo:\s+(\S+) : .* COMMAND=(.*)",
-     "MEDIUM", "Sudo command executed", "privilege_escalation"),
-    (r"sudo:\s+(\S+) : .* command not allowed",
-     "HIGH", "Sudo denied", "privilege_escalation"),
-    (r"useradd\[.*\]: new user: name=(\S+)",
-     "HIGH", "New user created", "account_change"),
-    (r"userdel\[.*\]: delete user '(\S+)'",
-     "HIGH", "User deleted", "account_change"),
-    (r"passwd\[.*\]: password changed for (\S+)",
-     "MEDIUM", "Password changed", "account_change"),
-    (r"Invalid user (\S+) from ([\d.]+)",
-     "MEDIUM", "Login attempt for nonexistent user", "brute_force"),
-    (r"groupadd\[.*\]: new group: name=(\S+)",
-     "MEDIUM", "New group created", "account_change"),
-    (r"COMMAND=.*(?:sshd_config|authorized_keys|sudoers)",
-     "HIGH", "SSH or sudo config touched", "config_change"),
-]
 
 COMPILED_PATTERNS = [
     (re.compile(pattern), severity, description, category)
