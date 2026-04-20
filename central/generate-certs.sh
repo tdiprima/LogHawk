@@ -21,7 +21,7 @@ Usage: $0 --server-name NAME [options]
 
 Options:
   --server-name NAME      Required. DNS name placed in the server certificate.
-  --server-address ADDR   Optional. Adds an IP SAN to the server certificate.
+  --server-address ADDR   Optional. Adds an IP SAN (virtualization) to the server certificate.
   --client-name NAME      Client certificate common name. Repeat for each agent.
   --out-dir PATH          Output directory (default: ${OUT_DIR})
   -h, --help              Show this help
@@ -74,7 +74,7 @@ if ! command -v openssl >/dev/null 2>&1; then
 fi
 
 mkdir -p "${OUT_DIR}"/{ca,server,clients}
-umask 077
+umask 077  # remove all permissions for group and others
 
 CA_KEY="${OUT_DIR}/ca/ca-key.pem"
 CA_CERT="${OUT_DIR}/ca/logging-ca.pem"
