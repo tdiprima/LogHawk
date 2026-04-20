@@ -1,4 +1,4 @@
-Alright — here's the **"what each piece actually does"** breakdown, no fluff, just sticky mental models 🧠⚡
+Here's the **"what each piece actually does"** breakdown — no fluff, just sticky mental models 🧠⚡
 
 ---
 
@@ -7,13 +7,13 @@ Alright — here's the **"what each piece actually does"** breakdown, no fluff, 
 ### `install-agent.sh` → "Make this box start talking"
 
 * Installs `rsyslog` if missing
-* Enables TLS support (secure pipe 🔒)
+* Enables TLS support (Transport Layer Security = secure pipe 🔒)
 * Drops in the forwarding config
 * Verifies certs exist (no certs = no trust = no send)
 
 👉 Translation:
 
-> "Turn this random Linux box into a secure log streamer."
+"Turn this random Linux box into a secure log streamer."
 
 ### `rsyslog-agent.conf` → "What to watch + where to send it"
 
@@ -29,7 +29,7 @@ It tells rsyslog:
 
 * *Send them here:*
 
-  * Central server over TCP
+  * Central server over TCP (Transmission Control Protocol)
   * Wrapped in TLS (encrypted)
   * Verify the server's identity (no fake collector)
 
@@ -39,7 +39,7 @@ It tells rsyslog:
 
 👉 Mental model:
 
-> "Tail logs → securely ship them → never drop anything."
+"Tail logs → securely ship them → never drop anything."
 
 ## 🏢 2. Central collector (the "brain server")
 
@@ -53,7 +53,7 @@ It tells rsyslog:
 
 👉 Translation:
 
-> "Turn this box into a log intake + storage system."
+"Turn this box into a log intake + storage system."
 
 ### `rsyslog-central.conf` → "Sort the chaos"
 
@@ -73,7 +73,7 @@ Creates structure like:
 
 👉 Mental model:
 
-> "Inbox → auto-organized folders instead of one giant mess."
+"Inbox → auto-organized folders instead of one giant mess."
 
 ### `generate-certs.sh` → "Issue passports"
 
@@ -85,7 +85,7 @@ Creates:
 
 👉 Translation:
 
-> "Everyone proves who they are before talking."
+"Everyone proves who they are before talking."
 
 This is **mTLS**:
 
@@ -125,7 +125,7 @@ It:
 
 👉 Translation:
 
-> "Don't cry wolf — scream only when it matters."
+"Don't cry wolf — scream only when it matters."
 
 #### 🚨 When triggered:
 
@@ -137,11 +137,11 @@ It can:
 
 #### 🧠 Hidden pro move:
 
-Handles log rotation automatically (inode changes)
+Handles log rotation automatically [inode changes (index node = metadata)]
 
 👉 Mental model:
 
-> "Continuously watching, never loses its place."
+"Continuously watching, never loses its place."
 
 ## 🔍 4. Investigation tools
 
@@ -164,7 +164,7 @@ You can instantly ask:
 
 👉 Mental model:
 
-> "Fast answers during panic mode — no thinking required."
+"Fast answers during panic mode — no thinking required."
 
 ## 🧪 5. Pipeline health check
 
@@ -173,7 +173,7 @@ You can instantly ask:
 * Looks at timestamps of logs per host
 * Flags hosts that haven't sent logs recently
 
-👉 Why this matters:
+👉 Why this matters:  
 Silent failure = worst failure
 
 Could mean:
@@ -181,10 +181,11 @@ Could mean:
 * logging broke ❌
 * host is down 💀
 * attacker killed logging 😬
+* or simply — no activity
 
 👉 Mental model:
 
-> "Attendance sheet for your servers."
+"Attendance sheet for your servers."
 
 ## 🤖 6. AI export / summarizer
 
@@ -207,15 +208,15 @@ Could mean:
 * JSON (machines)
 * OR prebuilt prompt (for LLMs)
 
-👉 Key insight:
+👉 Key insight:  
 It **filters + structures FIRST**, then hands to AI
 
 NOT:
 
-> "dump raw logs into ChatGPT and pray"
+"dump raw logs into ChatGPT and pray"
 
 👉 Mental model:
 
-> "Analyst prep before handing it to AI."
+"Analyst prep before handing it to AI."
 
 <br>
