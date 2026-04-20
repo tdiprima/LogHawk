@@ -18,7 +18,7 @@ Run once on any machine with `openssl`. Generates a private CA plus server and p
     --client-name db-01
 ```
 
-Copy the CA cert and the appropriate client cert/key pair to each agent host before installing.
+[Copy](../tools/copy-certs.sh) the CA cert and the appropriate client cert/key pair to each agent host before installing.
 
 ### 3. Set up the central collector
 
@@ -48,16 +48,6 @@ log server, two edits are required to avoid conflicts with the central config:
    closing `)`) — the central config already sets these TLS globals.
 2. **Remove the two module lines** that load `imuxsock` and `imklog` — they are
    already loaded by the default `rsyslog.conf`.
-
-Also set correct ownership and permissions on the certs directory so rsyslog
-can read them:
-
-```bash
-sudo chown root:syslog /etc/rsyslog.d/certs/*.pem
-sudo chmod 640 /etc/rsyslog.d/certs/*.pem
-```
-
-Then restart: `sudo systemctl restart rsyslog`
 
 ### 5. Install the forwarding agent
 

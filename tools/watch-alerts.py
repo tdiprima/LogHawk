@@ -92,7 +92,7 @@ ALERT_PATTERNS = [
 
     # Repeated auth failures = lockout or brute force in progress
     (r"pam_unix\(sshd:auth\): authentication failure",
-     "MEDIUM", "PAM auth failure", "brute_force"),
+     "HIGH", "PAM auth failure", "brute_force"),
 
     # Session opened for root
     (r"pam_unix\(sudo:session\): session opened for user root",
@@ -116,7 +116,7 @@ COMPILED_PATTERNS = [
 # ── Brute force tracker ───────────────────────────────────────────────
 # Track failures per IP to detect brute force bursts
 FAILURE_WINDOW_SECONDS = 60
-BRUTE_FORCE_THRESHOLD = 5  # failures from same IP within window = alert
+BRUTE_FORCE_THRESHOLD = 3  # failures from same IP within window = alert
 
 class BruteForceTracker:
     """Counts failures per IP in a rolling time window."""
