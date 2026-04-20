@@ -131,6 +131,8 @@ detect_log_owner_group() {
     else
         LOG_GROUP="${LOG_OWNER}"
     fi
+
+    echo "INFO: LOG_GROUP set to '${LOG_GROUP}'" >&2
 }
 
 # ── Detect OS ─────────────────────────────────────────────────────────

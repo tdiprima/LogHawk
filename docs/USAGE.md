@@ -32,6 +32,12 @@ sudo ./central/install-central.sh \
 
 Installs rsyslog, configures TLS reception on port 6514, sets up log rotation, and opens the firewall.
 
+Put yourself in the adm or root group.  The script tells you what `LOG_GROUP` was set to.
+
+```sh
+sudo usermod -aG adm $USER
+```
+
 ### 4. Set up the log server as a forwarding agent
 
 The log server itself also runs the forwarding agent. After deploying
