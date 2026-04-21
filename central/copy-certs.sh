@@ -153,9 +153,6 @@ done
 REMOTE="${REMOTE_USER}@${HOST}"
 REMOTE_TMP="/tmp/log-hawk-certs.$$"
 
-echo "[0/4] Validating SSH and sudo access to ${REMOTE}..."
-ssh -tt -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "sudo -v"
-
 echo "[1/4] Creating remote staging directory on ${REMOTE}..."
 ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "mkdir -p '${REMOTE_TMP}'"
 
@@ -169,24 +166,25 @@ for i in "${!SOURCE_FILES[@]}"; do
     scp -P "${SSH_PORT}" "${SSH_OPTS[@]}" "${SOURCE_FILES[$i]}" "${REMOTE}:${REMOTE_TMP}/${DEST_FILES[$i]}"
 done
 
-echo "[3/4] Installing files into ${REMOTE_DIR}..."
-ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "
-    sudo -n mkdir -p '${REMOTE_DIR}' &&
-    sudo -n chmod 700 '${REMOTE_DIR}' &&
-    sudo -n install -m 644 '${REMOTE_TMP}/logging-ca.pem' '${REMOTE_DIR}/logging-ca.pem'
-"
-
 if [[ "${ROLE}" == "collector" ]]; then
-    ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "
-        sudo -n install -m 644 '${REMOTE_TMP}/server-cert.pem' '${REMOTE_DIR}/server-cert.pem' &&
-        sudo -n install -m 600 '${REMOTE_TMP}/server-key.pem' '${REMOTE_DIR}/server-key.pem'
+    ROLE_INSTALLS="
+        sudo install -m 644 '${REMOTE_TMP}/server-cert.pem' '${REMOTE_DIR}/server-cert.pem' &&
+        sudo install -m 600 '${REMOTE_TMP}/server-key.pem' '${REMOTE_DIR}/server-key.pem'
     "
 else
-    ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "
-        sudo -n install -m 644 '${REMOTE_TMP}/agent-cert.pem' '${REMOTE_DIR}/agent-cert.pem' &&
-        sudo -n install -m 600 '${REMOTE_TMP}/agent-key.pem' '${REMOTE_DIR}/agent-key.pem'
+    ROLE_INSTALLS="
+        sudo install -m 644 '${REMOTE_TMP}/agent-cert.pem' '${REMOTE_DIR}/agent-cert.pem' &&
+        sudo install -m 600 '${REMOTE_TMP}/agent-key.pem' '${REMOTE_DIR}/agent-key.pem'
     "
 fi
+
+echo "[3/4] Installing files into ${REMOTE_DIR}..."
+ssh -tt -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "
+    sudo mkdir -p '${REMOTE_DIR}' &&
+    sudo chmod 700 '${REMOTE_DIR}' &&
+    sudo install -m 644 '${REMOTE_TMP}/logging-ca.pem' '${REMOTE_DIR}/logging-ca.pem' &&
+    ${ROLE_INSTALLS}
+"
 
 echo "[4/4] Verifying remote files..."
 ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "ls -l '${REMOTE_DIR}'"
