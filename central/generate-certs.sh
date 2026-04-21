@@ -8,8 +8,6 @@
 #       --client-name web-01 \
 #       --client-name db-01
 
-set -euo pipefail
-
 OUT_DIR="${PWD}/central/certs"
 SERVER_NAME=""
 SERVER_ADDRESS=""

@@ -6,8 +6,8 @@
 #   sudo ./install-agent.sh <central-log-server> [--server-name fqdn]
 #       [--port 6514]
 #       [--tls-ca /etc/rsyslog.d/certs/logging-ca.pem]
-#       [--tls-cert /etc/rsyslog.d/certs/agent-cert.pem]
-#       [--tls-key /etc/rsyslog.d/certs/agent-key.pem]
+#       [--tls-cert /etc/rsyslog.d/certs/client-cert.pem]
+#       [--tls-key /etc/rsyslog.d/certs/client-key.pem]
 #
 # What it does:
 #   1. Installs rsyslog (+ TLS support if available)
@@ -15,14 +15,12 @@
 #   3. Restarts rsyslog
 #   4. Verifies the TCP connection
 
-set -euo pipefail
-
 CENTRAL_SERVER=""
 SERVER_NAME=""
 TLS_PORT="6514"
 TLS_CA="/etc/rsyslog.d/certs/logging-ca.pem"
-TLS_CERT="/etc/rsyslog.d/certs/agent-cert.pem"
-TLS_KEY="/etc/rsyslog.d/certs/agent-key.pem"
+TLS_CERT="/etc/rsyslog.d/certs/client-cert.pem"
+TLS_KEY="/etc/rsyslog.d/certs/client-key.pem"
 AGENT_CONF="/etc/rsyslog.d/99-security-forward.conf"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_AUTH_LOG="/var/log/auth.log"

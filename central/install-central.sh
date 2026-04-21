@@ -20,8 +20,6 @@
 #   5. Sets up log rotation
 #   6. Restarts rsyslog
 
-set -euo pipefail
-
 TLS_PORT="6514"
 ALLOW_FROM=()
 TLS_CA="/etc/rsyslog.d/certs/logging-ca.pem"
@@ -172,12 +170,18 @@ for path in "${TLS_CA}" "${TLS_CERT}" "${TLS_KEY}"; do
     fi
 done
 
-echo "[2/5] Creating log storage at ${LOG_DIR}..."
+CERT_DIR="$(dirname "${TLS_CA}")"
+echo "[2/6] Creating certificate directory at ${CERT_DIR}..."
+mkdir -p "${CERT_DIR}"
+chown "root:${LOG_GROUP}" "${CERT_DIR}"
+chmod 750 "${CERT_DIR}"
+
+echo "[3/6] Creating log storage at ${LOG_DIR}..."
 mkdir -p "${LOG_DIR}"
 chown -R "${LOG_OWNER}:${LOG_GROUP}" "${LOG_DIR}"
 chmod 750 "${LOG_DIR}"
 
-echo "[3/5] Writing central receiver config..."
+echo "[4/6] Writing central receiver config..."
 sed \
     -e "s|TLS_PORT|${TLS_PORT}|g" \
     -e "s|TLS_CA_FILE|${TLS_CA}|g" \
@@ -187,7 +191,7 @@ sed \
 
 chmod 640 "${CENTRAL_CONF}"
 
-echo "[4/5] Setting up log rotation (${RETENTION_DAYS} days, compressed)..."
+echo "[5/6] Setting up log rotation (${RETENTION_DAYS} days, compressed)..."
 cat > "${LOGROTATE_CONF}" <<EOF
 /var/log/remote/*/*.log {
     daily
@@ -204,7 +208,7 @@ cat > "${LOGROTATE_CONF}" <<EOF
 }
 EOF
 
-echo "[5/5] Configuring firewall for TCP ${TLS_PORT}..."
+echo "[6/6] Configuring firewall for TCP ${TLS_PORT}..."
 if command -v ufw &>/dev/null && ! ufw status | grep -q "Status: active"; then
     echo "WARNING: ufw is installed but not active. Enable it manually and re-run (because 'ufw enable' is interactive), or allow TCP ${TLS_PORT} yourself." >&2
 elif command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then

@@ -10,8 +10,6 @@
 #   - Uses ssh/scp to copy files to the remote host.
 #   - Assumes the remote user can run sudo to install files under /etc/rsyslog.d/certs.
 
-# set -euo pipefail
-
 HOST=""
 ROLE=""
 REMOTE_USER="${USER:-$(id -un)}"
@@ -137,8 +135,8 @@ case "${ROLE}" in
         )
         DEST_FILES=(
             "logging-ca.pem"
-            "agent-cert.pem"
-            "agent-key.pem"
+            "client-cert.pem"
+            "client-key.pem"
         )
         ;;
 esac
@@ -173,8 +171,8 @@ if [[ "${ROLE}" == "collector" ]]; then
     "
 else
     ROLE_INSTALLS="
-        sudo install -m 644 '${REMOTE_TMP}/agent-cert.pem' '${REMOTE_DIR}/agent-cert.pem' &&
-        sudo install -m 600 '${REMOTE_TMP}/agent-key.pem' '${REMOTE_DIR}/agent-key.pem'
+        sudo install -m 644 '${REMOTE_TMP}/client-cert.pem' '${REMOTE_DIR}/client-cert.pem' &&
+        sudo install -m 600 '${REMOTE_TMP}/client-key.pem' '${REMOTE_DIR}/client-key.pem'
     "
 fi
 

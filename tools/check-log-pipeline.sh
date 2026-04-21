@@ -2,8 +2,6 @@
 # check-log-pipeline.sh
 # Reports remote hosts whose auth log has gone stale on the central collector.
 
-set -euo pipefail
-
 LOG_BASE="${LOG_BASE:-/var/log/remote}"
 STALE_MINUTES="${STALE_MINUTES:-15}"
 

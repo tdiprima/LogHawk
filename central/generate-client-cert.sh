@@ -5,8 +5,6 @@
 # Usage:
 #   ./generate-client-cert.sh --client-name web-02
 
-set -euo pipefail
-
 OUT_DIR="${PWD}/central/certs"
 CLIENT_NAME=""
 FORCE="false"

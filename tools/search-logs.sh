@@ -13,8 +13,6 @@
 #   ./search-logs.sh last-logins [host]     — recent successful logins
 #   ./search-logs.sh help                   — show this help
 
-set -euo pipefail
-
 LOG_BASE="${LOG_BASE:-/var/log/remote}"
 LOCAL_AUTH="/var/log/auth.log"       # Ubuntu
 LOCAL_AUTH_RHEL="/var/log/secure"    # RHEL
