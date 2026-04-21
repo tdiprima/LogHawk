@@ -171,7 +171,8 @@ done
 
 echo "[3/4] Installing files into ${REMOTE_DIR}..."
 ssh -p "${SSH_PORT}" "${SSH_OPTS[@]}" "${REMOTE}" "
-    sudo -n install -d -m 700 '${REMOTE_DIR}' &&
+    sudo mkdir -p '${REMOTE_DIR}' &&
+    sudo chmod 700 '${REMOTE_DIR}' &&
     sudo -n install -m 644 '${REMOTE_TMP}/logging-ca.pem' '${REMOTE_DIR}/logging-ca.pem'
 "
 
