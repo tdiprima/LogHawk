@@ -10,7 +10,7 @@
 #   - Uses ssh/scp to copy files to the remote host.
 #   - Assumes the remote user can run sudo to install files under /etc/rsyslog.d/certs.
 
-set -euo pipefail
+# set -euo pipefail
 
 HOST=""
 ROLE=""
