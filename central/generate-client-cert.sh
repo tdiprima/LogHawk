@@ -93,8 +93,8 @@ mkdir -p "${CLIENT_DIR}"
 
 printf 'extendedKeyUsage=clientAuth\n' > "${CLIENT_EXT}"
 
-openssl genrsa -out "${CLIENT_KEY}" 4096 >/dev/null 2>&1
-openssl req -new -key "${CLIENT_KEY}" -subj "/CN=${CLIENT_NAME}" -out "${CLIENT_CSR}" >/dev/null 2>&1
+openssl genrsa -out "${CLIENT_KEY}" 4096 2>&1
+openssl req -new -key "${CLIENT_KEY}" -subj "/CN=${CLIENT_NAME}" -out "${CLIENT_CSR}" 2>&1
 openssl x509 -req \
     -in "${CLIENT_CSR}" \
     -CA "${CA_CERT}" \
@@ -103,7 +103,7 @@ openssl x509 -req \
     -out "${CLIENT_CERT}" \
     -days 825 \
     -sha256 \
-    -extfile "${CLIENT_EXT}" >/dev/null 2>&1
+    -extfile "${CLIENT_EXT}" 2>&1
 
 cat <<EOF
 Generated client certificate under: ${CLIENT_DIR}
