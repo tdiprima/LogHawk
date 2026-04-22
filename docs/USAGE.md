@@ -18,7 +18,7 @@ Run once on any machine with `openssl`. Generates a private CA plus server and p
     --client-name db-01
 ```
 
-[Copy](../tools/copy-certs.sh) the CA cert and the appropriate client cert/key pair to each agent host before installing.
+[Copy](../central/copy-certs.sh) the CA cert and the appropriate client cert/key pair to each agent host before installing.
 
 ### 3. Set up the central collector
 
