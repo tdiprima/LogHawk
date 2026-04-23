@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # check-log-pipeline.sh
-# Reports remote hosts whose auth log has gone stale on the central collector.
+# Reports remote hosts whose logs have gone stale on the central collector.
+# Checks all expected log files: auth, kern, cron, audit, syslog.
 
 LOG_BASE="${LOG_BASE:-/var/log/remote}"
 STALE_MINUTES="${STALE_MINUTES:-15}"
+EXPECTED_LOGS=(auth.log kern.log cron.log audit.log syslog.log)
 
 usage() {
     cat <<EOF
 Usage: $0 [--minutes N] [--log-base PATH]
 
 Options:
-  --minutes N     Mark a host stale if auth.log is older than N minutes (default: ${STALE_MINUTES})
+  --minutes N     Mark a host stale if any log is older than N minutes (default: ${STALE_MINUTES})
   --log-base PATH Remote log base directory (default: ${LOG_BASE})
   -h, --help      Show this help
 EOF
@@ -51,17 +53,29 @@ fi
 now_epoch="$(date +%s)"
 stale_found=0
 
-while IFS= read -r -d '' auth_log; do
-    host="$(basename "$(dirname "${auth_log}")")"
-    file_epoch="$(stat -c %Y "${auth_log}")"
-    age_minutes="$(( (now_epoch - file_epoch) / 60 ))"
+for host_dir in "${LOG_BASE}"/*/; do
+    [[ -d "${host_dir}" ]] || continue
+    host="$(basename "${host_dir}")"
 
-    if (( age_minutes > STALE_MINUTES )); then
-        printf 'STALE  %-25s %4sm  %s\n' "${host}" "${age_minutes}" "${auth_log}"
-        stale_found=1
-    else
-        printf 'OK     %-25s %4sm  %s\n' "${host}" "${age_minutes}" "${auth_log}"
-    fi
-done < <(find "${LOG_BASE}" -mindepth 2 -maxdepth 2 -name auth.log -print0 | sort -z)
+    for log_name in "${EXPECTED_LOGS[@]}"; do
+        log_file="${host_dir}${log_name}"
+
+        if [[ ! -f "${log_file}" ]]; then
+            printf 'MISS   %-25s  %-12s  %s\n' "${host}" "${log_name}" "(not found)"
+            stale_found=1
+            continue
+        fi
+
+        file_epoch="$(stat -c %Y "${log_file}")"
+        age_minutes="$(( (now_epoch - file_epoch) / 60 ))"
+
+        if (( age_minutes > STALE_MINUTES )); then
+            printf 'STALE  %-25s  %-12s  %4sm  %s\n' "${host}" "${log_name}" "${age_minutes}" "${log_file}"
+            stale_found=1
+        else
+            printf 'OK     %-25s  %-12s  %4sm  %s\n' "${host}" "${log_name}" "${age_minutes}" "${log_file}"
+        fi
+    done
+done
 
 exit "${stale_found}"

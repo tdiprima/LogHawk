@@ -5,16 +5,17 @@ Real-time log watcher. Tails auth logs and prints alerts when suspicious
 patterns appear. No external dependencies — stdlib only.
 
 Usage:
-    # Watch local auth log (Ubuntu/Debian):
+    # Watch all local security logs (Ubuntu/Debian):
     sudo python3 watch-alerts.py
 
     # Watch a specific file:
     sudo python3 watch-alerts.py --file /var/log/auth.log
-    # or on RHEL/CentOS/Rocky:
-    sudo python3 watch-alerts.py --file /var/log/secure
 
     # Watch all remote logs on the central server:
-    sudo python3 watch-alerts.py --file /var/log/remote/*/auth.log
+    sudo python3 watch-alerts.py --file '/var/log/remote/*/*.log'
+
+    # Only CRITICAL and HIGH alerts:
+    sudo python3 watch-alerts.py --min-severity HIGH
 
     # Write JSON alerts to a file (for LLM analysis later):
     sudo python3 watch-alerts.py --json-out /var/log/security-alerts.jsonl
@@ -100,6 +101,13 @@ SEVERITY_COLOR = {
     "LOW":      "\033[0;36m",  # cyan
     "INFO":     "\033[0;32m",  # green
 }
+SEVERITY_RANK = {
+    "CRITICAL": 4,
+    "HIGH": 3,
+    "MEDIUM": 2,
+    "LOW": 1,
+    "INFO": 0,
+}
 RESET = "\033[0m"
 
 # Severities that trigger email. MEDIUM/LOW/INFO are print-only.
@@ -131,6 +139,9 @@ def send_alert_email(recipient: str, severity: str, description: str, raw_line: 
         log.error("Email send failed: %s", err)
 
 
+min_severity_rank = 0  # global filter, set from --min-severity
+
+
 def emit_alert(
     severity: str,
     description: str,
@@ -141,6 +152,9 @@ def emit_alert(
     email_recipient: str | None,
 ):
     """Print a colored alert to stdout, optionally write JSON, optionally email."""
+    if SEVERITY_RANK.get(severity, 0) < min_severity_rank:
+        return
+
     timestamp = datetime.now(timezone.utc).isoformat()
     color = SEVERITY_COLOR.get(severity, "")
 
@@ -223,28 +237,35 @@ def process_line(line: str, source_file: str, json_out_handle, email_recipient: 
 
 # ── Main ──────────────────────────────────────────────────────────────
 
-def resolve_log_files(file_patterns: list[str]) -> list[str]:
+DEFAULT_LOG_CANDIDATES = [
+    "/var/log/auth.log",       # Ubuntu/Debian auth
+    "/var/log/secure",         # RHEL/CentOS auth
+    "/var/log/kern.log",       # kernel
+    "/var/log/cron.log",       # cron (Debian)
+    "/var/log/cron",           # cron (RHEL)
+    "/var/log/syslog",         # syslog (Debian)
+    "/var/log/messages",       # syslog (RHEL)
+]
+
+
+def resolve_log_files(file_patterns: list[str] | None) -> list[str]:
     """Expand glob patterns and return matching file paths."""
     paths = []
-    for pattern in file_patterns:
-        matched = glob.glob(pattern)
-        if matched:
-            paths.extend(matched)
-        elif Path(pattern).exists():
-            paths.append(pattern)
 
-    if not paths:
-        candidates = [
-            "/var/log/auth.log",   # Ubuntu/Debian
-            "/var/log/secure",     # RHEL/CentOS/Rocky
-            "/var/log/messages",   # RHEL fallback
-        ]
-        for candidate in candidates:
+    if file_patterns:
+        for pattern in file_patterns:
+            matched = glob.glob(pattern)
+            if matched:
+                paths.extend(matched)
+            elif Path(pattern).exists():
+                paths.append(pattern)
+    else:
+        for candidate in DEFAULT_LOG_CANDIDATES:
             if Path(candidate).exists():
                 paths.append(candidate)
 
     if not paths:
-        log.error("No log files found at: %s", file_patterns)
+        log.error("No log files found. Specify paths with --file.")
         sys.exit(1)
 
     return paths
@@ -257,12 +278,18 @@ def main():
     parser.add_argument(
         "--file",
         nargs="+",
-        default=["/var/log/auth.log"],
+        default=None,
         help=(
             "Log file(s) to watch. Supports globs (quote to prevent shell expansion): "
-            "'/var/log/remote/*/auth.log'. Also accepts shell-expanded paths. "
-            "Defaults to /var/log/auth.log (Ubuntu/Debian) or /var/log/secure (RHEL)."
+            "'/var/log/remote/*/*.log'. Also accepts shell-expanded paths. "
+            "Defaults to all local security logs: auth, kern, cron, syslog."
         ),
+    )
+    parser.add_argument(
+        "--min-severity",
+        default="INFO",
+        choices=["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"],
+        help="Minimum severity to display (default: INFO).",
     )
     parser.add_argument(
         "--json-out",
@@ -277,7 +304,10 @@ def main():
     )
     args = parser.parse_args()
 
-    log_files = resolve_log_files(args.file)  # args.file is already a list via nargs='+'
+    global min_severity_rank
+    min_severity_rank = SEVERITY_RANK.get(args.min_severity, 0)
+
+    log_files = resolve_log_files(args.file)
 
     json_out_handle = None
     if args.json_out:

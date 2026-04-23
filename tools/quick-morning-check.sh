@@ -45,6 +45,36 @@ else
 fi
 
 echo ""
+echo "=== OOM KILLS (last 24h) ==="
+if [[ -s /var/log/kern.log ]]; then
+  grep -E "Out of memory|Killed process" /var/log/kern.log | grep "$(date '+%b %e')" || echo "  (none)"
+elif [[ -s /var/log/messages ]]; then
+  grep -E "Out of memory|Killed process" /var/log/messages | grep "$(date '+%b %e')" || echo "  (none)"
+fi
+
+echo ""
+echo "=== DISK / FS ERRORS (last 24h) ==="
+if [[ -s /var/log/kern.log ]]; then
+  grep -E "I/O error|EXT4-fs error|XFS.*error" /var/log/kern.log | grep "$(date '+%b %e')" || echo "  (none)"
+fi
+
+echo ""
+echo "=== SERVICE FAILURES TODAY ==="
+if [[ -s /var/log/syslog ]]; then
+  grep -E "Failed with result|failed to start" /var/log/syslog | grep "$(date '+%b %e')" || echo "  (none)"
+elif [[ -s /var/log/messages ]]; then
+  grep -E "Failed with result|failed to start" /var/log/messages | grep "$(date '+%b %e')" || echo "  (none)"
+fi
+
+echo ""
+echo "=== CRONTAB CHANGES TODAY ==="
+if [[ -s /var/log/cron.log ]]; then
+  grep -E "REPLACE|BEGIN EDIT|END EDIT" /var/log/cron.log | grep "$(date '+%b %e')" || echo "  (none)"
+elif [[ -s /var/log/cron ]]; then
+  grep -E "REPLACE|BEGIN EDIT|END EDIT" /var/log/cron | grep "$(date '+%b %e')" || echo "  (none)"
+fi
+
+echo ""
 echo "=== NEW LISTENING PORTS ==="
 ss -tlnp
 
