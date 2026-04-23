@@ -149,6 +149,26 @@ for path in "${TLS_CA}" "${TLS_CERT}" "${TLS_KEY}"; do
     fi
 done
 
+# rsyslogd drops privileges after startup. The runtime user must be able to
+# traverse the certs directory and read the files inside.
+RSYSLOG_USER="root"
+if id "syslog" &>/dev/null; then
+    RSYSLOG_USER="syslog"
+elif id "_syslog" &>/dev/null; then
+    RSYSLOG_USER="_syslog"
+fi
+
+CERT_DIR="$(dirname "${TLS_CA}")"
+if [[ "${RSYSLOG_USER}" != "root" ]]; then
+    echo "      Setting cert directory permissions for ${RSYSLOG_USER}..."
+    chown root:"$(id -gn "${RSYSLOG_USER}")" "${CERT_DIR}"
+    chmod 0750 "${CERT_DIR}"
+    chown root:"$(id -gn "${RSYSLOG_USER}")" "${TLS_CA}" "${TLS_CERT}"
+    chmod 0640 "${TLS_CA}" "${TLS_CERT}"
+    chown root:"$(id -gn "${RSYSLOG_USER}")" "${TLS_KEY}"
+    chmod 0640 "${TLS_KEY}"
+fi
+
 echo "[2/4] Writing forwarding config to ${AGENT_CONF}..."
 sed \
     -e "s|CENTRAL_LOG_SERVER|${CENTRAL_SERVER}|g" \
