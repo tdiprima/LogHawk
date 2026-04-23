@@ -1,4 +1,4 @@
-Six streams forwarded from each agent:
+## Six streams forwarded from each agent
 
 | Facility         | What it captures                                   | Source                                          |
 |-----------------|----------------------------------------------------|-------------------------------------------------|
@@ -9,8 +9,7 @@ Six streams forwarded from each agent:
 | syslog.*        | rsyslog internal + catchall syslog messages        | syslog facility                                 |
 | local6.*        | auditd logs                                        | file-tailed from /var/log/audit/audit.log via imfile |
 
-Three also kept locally on each agent: auth.log, kern.log, cron.log. Auditd already keeps its own local
-copy natively.
+Three also kept locally on each agent: `auth.log`, `kern.log`, `cron.log`. Auditd already keeps its own local copy natively.
  
-On central server, these land in separate files per host: auth.log, kern.log, cron.log, audit.log, and 
-syslog.log (catchall for daemon + syslog facilities).
+On central server, these land in separate files per host: `auth.log`, `kern.log`, `cron.log`, `audit.log`, and 
+`syslog.log` (catchall for daemon + syslog facilities).
