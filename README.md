@@ -1,6 +1,8 @@
 ![LogHawk Banner Design](LogHawk-Banner-Design.png)
 
-# LogHawk 🦅
+![Works at 2AM](https://img.shields.io/badge/works%20at-2AM-critical)
+![Logs](https://img.shields.io/badge/logs-finally%20useful-blueviolet)
+![Complexity](https://img.shields.io/badge/complexity-low-success)
 
 **Real-time security visibility for Linux fleets — without the SIEM headache**
 
