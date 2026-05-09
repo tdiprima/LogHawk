@@ -47,4 +47,10 @@ sudo ./tools/uninstall-alerts-daemon.sh
 
 **Prereq reminder:** Local MTA (postfix/sendmail) must be running on localhost:25 for email delivery to work.
 
+## Run the installer with sudo
+
+Script writes to `/opt/loghawk`, `/etc/loghawk`, `/etc/systemd/system/` and runs `systemctl`. All need root.
+
+Script checks `EUID -ne 0` and exits with error if not root.
+
 <br>
