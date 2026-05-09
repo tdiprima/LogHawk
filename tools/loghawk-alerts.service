@@ -1,0 +1,26 @@
+[Unit]
+Description=LogHawk real-time security log watcher
+Documentation=https://github.com/tdiprima/LogHawk
+After=rsyslog.service network.target
+Wants=rsyslog.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/loghawk/alerts.conf
+ExecStart=/usr/bin/python3 /opt/loghawk/watch-alerts.py $WATCH_ALERTS_OPTS
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=loghawk-alerts
+
+# Hardening
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/loghawk
+ReadWritePaths=/var/log
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
