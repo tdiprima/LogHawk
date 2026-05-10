@@ -159,7 +159,7 @@ def emit_alert(
     color = SEVERITY_COLOR.get(severity, "")
 
     print(
-        f"{color}[{severity:8s}] {timestamp}  {description}{RESET}\n"
+        f"{color}[loghawk] [{severity:8s}] {timestamp}  {description}{RESET}\n"
         f"           File: {source_file}\n"
         f"           Log:  {raw_line.strip()}\n"
     )
@@ -215,7 +215,7 @@ def tail_file(filepath: str, json_out_handle, email_recipient: str | None):
                     inode = os.fstat(file_handle.fileno()).st_ino
 
 
-SELF_IDENTIFIERS = ("loghawk-alerts", "watch-alerts.py", "loghawk")
+SELF_IDENTIFIERS = ("loghawk-alerts", "watch-alerts.py", "watch-alerts", "loghawk")
 
 
 def process_line(line: str, source_file: str, json_out_handle, email_recipient: str | None):
