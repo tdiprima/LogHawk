@@ -78,7 +78,8 @@ ALERT_PATTERNS = [
     (r"EXT4-fs error",
      "CRITICAL", "Filesystem error", "kernel"),
 
-    (r"I/O error, dev (\S+)",
+    # (r"I/O error, dev (\S+)",  # Negative lookahead (?!fd\d) skips floppy devices:
+    (r"I/O error, dev (?!fd\d)(\S+)",
      "CRITICAL", "Disk I/O error", "kernel"),
 
     (r"Hardware Error",
@@ -162,6 +163,7 @@ ALERT_PATTERNS = [
     (r"(?:oom-kill|lowmem)",
      "CRITICAL", "Memory pressure event", "system"),
 
-    (r"(?:temperature|overheat|thermal)",
-     "HIGH", "Thermal warning", "system"),
+    # (r"(?:temperature|overheat|thermal)",
+    # "HIGH", "Thermal warning", "system"),
+
 ]
