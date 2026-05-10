@@ -215,8 +215,15 @@ def tail_file(filepath: str, json_out_handle, email_recipient: str | None):
                     inode = os.fstat(file_handle.fileno()).st_ino
 
 
+SELF_IDENTIFIERS = ("loghawk-alerts", "watch-alerts.py", "loghawk")
+
+
 def process_line(line: str, source_file: str, json_out_handle, email_recipient: str | None):
     """Run all alert patterns against a single log line."""
+    lower_line = line.lower()
+    if any(tag in lower_line for tag in SELF_IDENTIFIERS):
+        return
+
     for compiled_pattern, severity, description, category in COMPILED_PATTERNS:
         match = compiled_pattern.search(line)
         if not match:
