@@ -125,7 +125,7 @@ ALERT_PATTERNS = [
     (r"type=MAC_POLICY_LOAD",
      "HIGH", "Auditd: SELinux/AppArmor policy loaded", "audit"),
 
-    (r"type=AVC msg=.*denied",
+    (r"type=AVC msg=.*\bdenied\b",
      "HIGH", "Auditd: SELinux denial", "audit"),
 
     (r"type=USER_MGMT msg=.*op=(?:adding|deleting)",

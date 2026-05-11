@@ -93,6 +93,32 @@ class BruteForceTracker:
 
 brute_tracker = BruteForceTracker(FAILURE_WINDOW_SECONDS, BRUTE_FORCE_THRESHOLD)
 
+# ── Alert deduplication ──────────────────────────────────────────────
+DEDUP_WINDOW_SECONDS = 4 * 3600  # 4 hours default
+
+
+class AlertDeduplicator:
+    """Suppress duplicate alerts within a time window."""
+
+    def __init__(self, window_seconds: int):
+        self.window = window_seconds
+        self._last_seen: dict[tuple[str, str], float] = {}
+        self._lock = threading.Lock()
+
+    def should_alert(self, description: str, source_file: str) -> bool:
+        now = time.time()
+        key = (description, source_file)
+
+        with self._lock:
+            last = self._last_seen.get(key)
+            if last and (now - last) < self.window:
+                return False
+            self._last_seen[key] = now
+            return True
+
+
+dedup: AlertDeduplicator = None
+
 # ── Alert output ──────────────────────────────────────────────────────
 SEVERITY_COLOR = {
     "CRITICAL": "\033[1;31m",  # bold red
@@ -154,6 +180,10 @@ def emit_alert(
     """Print a colored alert to stdout, optionally write JSON, optionally email."""
     if SEVERITY_RANK.get(severity, 0) < min_severity_rank:
         return
+
+    if severity not in ("CRITICAL", "HIGH"):
+        if dedup and not dedup.should_alert(description, source_file):
+            return
 
     timestamp = datetime.now(timezone.utc).isoformat()
     color = SEVERITY_COLOR.get(severity, "")
@@ -309,10 +339,20 @@ def main():
         metavar="ADDRESS",
         help="Email address to notify on CRITICAL/HIGH alerts via local MTA.",
     )
+    parser.add_argument(
+        "--dedup-window",
+        type=int,
+        default=DEDUP_WINDOW_SECONDS,
+        metavar="SECONDS",
+        help="Suppress duplicate alerts within this window (default: 14400 = 4 hours).",
+    )
     args = parser.parse_args()
 
     global min_severity_rank
     min_severity_rank = SEVERITY_RANK.get(args.min_severity, 0)
+
+    global dedup
+    dedup = AlertDeduplicator(args.dedup_window)
 
     log_files = resolve_log_files(args.file)
 
