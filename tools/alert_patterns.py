@@ -49,8 +49,8 @@ ALERT_PATTERNS = [
      "HIGH", "SSH or sudo config file touched via sudo", "config_change"),
 
     # Repeated auth failures = lockout or brute force in progress
-    (r"pam_unix\(sshd:auth\): authentication failure",
-     "HIGH", "PAM auth failure", "brute_force"),
+    # (r"pam_unix\(sshd:auth\): authentication failure",
+    #  "HIGH", "PAM auth failure", "brute_force"),
 
     # Session opened for root
     (r"pam_unix\(sudo:session\): session opened for user root",
