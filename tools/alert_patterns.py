@@ -113,7 +113,7 @@ ALERT_PATTERNS = [
 
     # ── audit.log (auditd format via imfile) ─────────────────────────
 
-    (r"type=USER_AUTH msg=.*res=failed",
+    (r"type=USER_AUTH msg=(?!.*op=pubkey).*res=failed",
      "HIGH", "Auditd: authentication failure", "audit"),
 
     (r"type=ANOM_",
