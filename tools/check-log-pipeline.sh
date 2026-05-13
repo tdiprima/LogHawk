@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # check-log-pipeline.sh
 # Reports remote hosts whose logs have gone stale on the central collector.
-# Checks all expected log files: auth, kern, cron, audit, syslog.
+#
+# Per-host expected logs:
+#   Drop a .expected-logs file in a host's log directory to declare which
+#   log files that host should produce (one filename per line).
+#   Hosts without .expected-logs are checked against whatever files actually
+#   exist — no MISS noise for logs the host never produced.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=loghawk-config.sh
@@ -59,6 +64,26 @@ if [[ ! -d "${LOG_BASE}" ]]; then
     exit 1
 fi
 
+resolve_host_logs() {
+    # Determine which log files to check for a given host directory.
+    #   1. .expected-logs file present → use it (strict: MISS if listed file absent)
+    #   2. No .expected-logs → check only files that actually exist (no false MISS)
+    local host_dir="$1"
+    local manifest="${host_dir}.expected-logs"
+
+    if [[ -f "${manifest}" ]]; then
+        # Strict mode: operator declared what this host should produce.
+        grep -v '^\s*#' "${manifest}" | grep -v '^\s*$'
+        echo "__strict__"
+        return
+    fi
+
+    # Auto-discover: only check log files that exist.
+    for candidate in "${EXPECTED_LOGS[@]}"; do
+        [[ -f "${host_dir}${candidate}" ]] && echo "${candidate}"
+    done
+}
+
 now_epoch="$(date +%s)"
 stale_found=0
 
@@ -66,12 +91,29 @@ for host_dir in "${LOG_BASE}"/*/; do
     [[ -d "${host_dir}" ]] || continue
     host="$(basename "${host_dir}")"
 
-    for log_name in "${EXPECTED_LOGS[@]}"; do
+    mapfile -t host_logs < <(resolve_host_logs "${host_dir}")
+
+    # Check if strict mode (last element is sentinel)
+    strict="false"
+    if [[ "${host_logs[*]:(-1)}" == "__strict__" ]]; then
+        strict="true"
+        unset 'host_logs[-1]'
+    fi
+
+    if [[ ${#host_logs[@]} -eq 0 ]]; then
+        printf 'EMPTY  %-25s  %-12s  %s\n' "${host}" "-" "(no log files found)"
+        stale_found=1
+        continue
+    fi
+
+    for log_name in "${host_logs[@]}"; do
         log_file="${host_dir}${log_name}"
 
         if [[ ! -f "${log_file}" ]]; then
-            printf 'MISS   %-25s  %-12s  %s\n' "${host}" "${log_name}" "(not found)"
-            stale_found=1
+            if [[ "${strict}" == "true" ]]; then
+                printf 'MISS   %-25s  %-12s  %s\n' "${host}" "${log_name}" "(expected by .expected-logs)"
+                stale_found=1
+            fi
             continue
         fi
 
