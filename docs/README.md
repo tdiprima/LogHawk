@@ -1,7 +1,6 @@
-# LogHawk Docs Reading Order
+# LogHawk Docs Reading Order 📚
 
 Start here if you are new to the project and want the fastest path from "what is this?" to "I can run and operate it."
-
 ## Recommended Order
 
 ### 1. [LOGHAWK_COMPONENTS_CHEAT_SHEET.md](LOGHAWK_COMPONENTS_CHEAT_SHEET.md)
