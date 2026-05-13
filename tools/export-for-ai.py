@@ -28,6 +28,7 @@ import os
 import re
 import socket
 from alert_patterns import ALERT_PATTERNS
+from loghawk_config import load_config, ConfigError
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
@@ -225,8 +226,14 @@ def main():
     )
     parser.add_argument(
         "--log-base",
-        default="/var/log/remote",
-        help="Base directory for remote logs (default: /var/log/remote).",
+        default=None,
+        help="Base directory for remote logs. Overrides config file.",
+    )
+    parser.add_argument(
+        "--config",
+        default=None,
+        metavar="PATH",
+        help="Path to loghawk.conf. Default: /etc/loghawk/loghawk.conf",
     )
     parser.add_argument(
         "--out",
@@ -240,11 +247,19 @@ def main():
     )
     args = parser.parse_args()
 
+    try:
+        config = load_config(args.config)
+    except ConfigError as err:
+        print(f"ERROR: {err}", file=sys.stderr)
+        sys.exit(1)
+
+    log_base = args.log_base if args.log_base is not None else config["log_base"]
+
     since = datetime.now(timezone.utc) - timedelta(hours=args.hours)
-    log_files = find_log_files(args.log_base, args.host)
+    log_files = find_log_files(log_base, args.host)
 
     if not log_files:
-        print(f"ERROR: No log files found under {args.log_base}", file=sys.stderr)
+        print(f"ERROR: No log files found under {log_base}", file=sys.stderr)
         sys.exit(1)
 
     print(f"Scanning {len(log_files)} log file(s) for last {args.hours} hour(s)...",
@@ -252,7 +267,7 @@ def main():
 
     all_events: list[dict] = []
     for log_file in log_files:
-        events = extract_events(log_file, since, args.log_base)
+        events = extract_events(log_file, since, log_base)
         all_events.extend(events)
         print(f"  {log_file}: {len(events)} events", file=sys.stderr)
 

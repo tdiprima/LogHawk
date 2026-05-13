@@ -1,0 +1,43 @@
+# /etc/loghawk/loghawk.conf — LogHawk configuration
+#
+# All LogHawk tools read this file at startup. CLI flags and environment
+# variables take precedence over values defined here.
+#
+# Install to:   /etc/loghawk/loghawk.conf
+# Permissions:  0644 root:root
+#
+# Config file search order:
+#   1. --config flag (Python tools) or LOGHAWK_CONFIG env var
+#   2. /etc/loghawk/loghawk.conf
+#   3. Built-in defaults (if no file found)
+#
+# If an explicit path is given (via flag or env var) and the file is missing,
+# tools exit with an error. A missing file at the default path is not an error.
+
+[paths]
+# Base directory where rsyslog stores centralized remote host logs.
+# Each host gets a subdirectory: <log_base>/<hostname>/*.log
+log_base = /var/log/remote
+
+[alerting]
+# Brute force detection: alert fires when the same IP fails >= threshold
+# times within the window.
+brute_force_window_seconds = 60
+brute_force_threshold = 3
+
+# Suppress duplicate non-critical alerts within this window (seconds).
+# CRITICAL and HIGH alerts always fire immediately regardless of this setting.
+dedup_window_seconds = 14400
+
+# Severity levels that trigger email notifications (comma-separated).
+# Valid values: CRITICAL, HIGH, MEDIUM, LOW, INFO
+email_severities = CRITICAL,HIGH
+
+[pipeline]
+# check-log-pipeline.sh marks a host stale when any expected log file
+# has not been written within this many minutes.
+stale_minutes = 15
+
+# Expected log files per host (comma-separated).
+# Hosts missing any of these are flagged by check-log-pipeline.sh.
+expected_logs = auth.log,kern.log,cron.log,audit.log,syslog.log

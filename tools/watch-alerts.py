@@ -34,6 +34,7 @@ import os
 import re
 import signal
 from alert_patterns import ALERT_PATTERNS
+from loghawk_config import load_config, ConfigError
 import smtplib
 import socket
 import sys
@@ -60,9 +61,6 @@ COMPILED_PATTERNS = [
 ]
 
 # ── Brute force tracker ───────────────────────────────────────────────
-# Track failures per IP to detect brute force bursts
-FAILURE_WINDOW_SECONDS = 60
-BRUTE_FORCE_THRESHOLD = 3  # failures from same IP within window = alert
 
 class BruteForceTracker:
     """Counts failures per IP in a rolling time window."""
@@ -91,10 +89,9 @@ class BruteForceTracker:
         return count == self.threshold
 
 
-brute_tracker = BruteForceTracker(FAILURE_WINDOW_SECONDS, BRUTE_FORCE_THRESHOLD)
+brute_tracker: BruteForceTracker | None = None
 
 # ── Alert deduplication ──────────────────────────────────────────────
-DEDUP_WINDOW_SECONDS = 4 * 3600  # 4 hours default
 
 
 class AlertDeduplicator:
@@ -117,7 +114,7 @@ class AlertDeduplicator:
             return True
 
 
-dedup: AlertDeduplicator = None
+dedup: AlertDeduplicator | None = None
 
 # ── Alert output ──────────────────────────────────────────────────────
 SEVERITY_COLOR = {
@@ -136,8 +133,7 @@ SEVERITY_RANK = {
 }
 RESET = "\033[0m"
 
-# Severities that trigger email. MEDIUM/LOW/INFO are print-only.
-EMAIL_SEVERITIES = {"CRITICAL", "HIGH"}
+email_severities: set[str] = set()
 
 
 def send_alert_email(recipient: str, severity: str, description: str, raw_line: str, source_file: str):
@@ -206,7 +202,7 @@ def emit_alert(
         json_out_handle.write(json.dumps(record) + "\n")
         json_out_handle.flush()
 
-    if email_recipient and severity in EMAIL_SEVERITIES:
+    if email_recipient and severity in email_severities:
         send_alert_email(email_recipient, severity, description, raw_line, source_file)
 
 
@@ -342,17 +338,39 @@ def main():
     parser.add_argument(
         "--dedup-window",
         type=int,
-        default=DEDUP_WINDOW_SECONDS,
+        default=None,
         metavar="SECONDS",
-        help="Suppress duplicate alerts within this window (default: 14400 = 4 hours).",
+        help="Suppress duplicate alerts within this window. Overrides config file.",
+    )
+    parser.add_argument(
+        "--config",
+        default=None,
+        metavar="PATH",
+        help="Path to loghawk.conf. Default: /etc/loghawk/loghawk.conf",
     )
     args = parser.parse_args()
+
+    try:
+        config = load_config(args.config)
+    except ConfigError as err:
+        log.error("%s", err)
+        sys.exit(1)
 
     global min_severity_rank
     min_severity_rank = SEVERITY_RANK.get(args.min_severity, 0)
 
+    global brute_tracker
+    brute_tracker = BruteForceTracker(
+        config["brute_force_window_seconds"],
+        config["brute_force_threshold"],
+    )
+
+    global email_severities
+    email_severities = config["email_severities"]
+
+    dedup_seconds = args.dedup_window if args.dedup_window is not None else config["dedup_window_seconds"]
     global dedup
-    dedup = AlertDeduplicator(args.dedup_window)
+    dedup = AlertDeduplicator(dedup_seconds)
 
     log_files = resolve_log_files(args.file)
 

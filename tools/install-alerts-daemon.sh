@@ -125,8 +125,16 @@ echo "[1/5] Copying watch-alerts to ${INSTALL_DIR}..."
 mkdir -p "${INSTALL_DIR}"
 cp "${SCRIPT_DIR}/watch-alerts.py" "${INSTALL_DIR}/watch-alerts.py"
 cp "${SCRIPT_DIR}/alert_patterns.py" "${INSTALL_DIR}/alert_patterns.py"
+cp "${SCRIPT_DIR}/loghawk_config.py" "${INSTALL_DIR}/loghawk_config.py"
 chmod 755 "${INSTALL_DIR}/watch-alerts.py"
 chmod 644 "${INSTALL_DIR}/alert_patterns.py"
+chmod 644 "${INSTALL_DIR}/loghawk_config.py"
+
+if [[ ! -f "${CONF_DIR}/loghawk.conf" ]]; then
+    echo "      Installing default loghawk.conf..."
+    cp "${SCRIPT_DIR}/loghawk.conf.example" "${CONF_DIR}/loghawk.conf"
+    chmod 644 "${CONF_DIR}/loghawk.conf"
+fi
 
 echo "[2/5] Writing configuration to ${CONF_FILE}..."
 mkdir -p "${CONF_DIR}"

@@ -15,6 +15,10 @@
 # 
 # Patterns intentionally maintained separately from alert_patterns.py — see [adr] for why
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=loghawk-config.sh
+source "${SCRIPT_DIR}/loghawk-config.sh" || exit 1
+
 LOG_BASE="${LOG_BASE:-/var/log/remote}"
 LOCAL_AUTH="/var/log/auth.log"       # Ubuntu
 LOCAL_AUTH_RHEL="/var/log/secure"    # RHEL

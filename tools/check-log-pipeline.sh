@@ -3,9 +3,18 @@
 # Reports remote hosts whose logs have gone stale on the central collector.
 # Checks all expected log files: auth, kern, cron, audit, syslog.
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=loghawk-config.sh
+source "${SCRIPT_DIR}/loghawk-config.sh" || exit 1
+
 LOG_BASE="${LOG_BASE:-/var/log/remote}"
 STALE_MINUTES="${STALE_MINUTES:-15}"
-EXPECTED_LOGS=(auth.log kern.log cron.log audit.log syslog.log)
+
+if [[ -n "${_LOGHAWK_EXPECTED_LOGS_CSV:-}" ]]; then
+    IFS=',' read -ra EXPECTED_LOGS <<< "${_LOGHAWK_EXPECTED_LOGS_CSV}"
+else
+    EXPECTED_LOGS=(auth.log kern.log cron.log audit.log syslog.log)
+fi
 
 usage() {
     cat <<EOF

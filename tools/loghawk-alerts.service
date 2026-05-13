@@ -17,7 +17,7 @@ SyslogIdentifier=loghawk-alerts
 # Hardening
 ProtectSystem=strict
 ProtectHome=true
-ReadOnlyPaths=/opt/loghawk
+ReadOnlyPaths=/opt/loghawk /etc/loghawk
 ReadWritePaths=/var/log
 NoNewPrivileges=true
 PrivateTmp=true
