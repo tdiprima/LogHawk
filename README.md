@@ -158,7 +158,7 @@ LogHawk includes detection patterns for:
 
 ## Project Status
 
-This is a practical security engineering project. Review detection patterns, retention, firewall rules, certificate handling, and alert routing before using it in production.
+This is a practical security engineering project. Review detection patterns, retention, firewall rules, certificate handling, and alert routing before using it in production. Read the [docs](./docs).
 
 ## License
 
