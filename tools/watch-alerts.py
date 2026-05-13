@@ -42,6 +42,7 @@ import threading
 import time
 from collections import defaultdict
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from email.message import EmailMessage
@@ -116,14 +117,8 @@ class AlertDeduplicator:
 
 dedup: AlertDeduplicator | None = None
 
-# ── Alert output ──────────────────────────────────────────────────────
-SEVERITY_COLOR = {
-    "CRITICAL": "\033[1;31m",  # bold red
-    "HIGH":     "\033[0;31m",  # red
-    "MEDIUM":   "\033[0;33m",  # yellow
-    "LOW":      "\033[0;36m",  # cyan
-    "INFO":     "\033[0;32m",  # green
-}
+# ── Alert data ────────────────────────────────────────────────────────
+
 SEVERITY_RANK = {
     "CRITICAL": 4,
     "HIGH": 3,
@@ -131,37 +126,113 @@ SEVERITY_RANK = {
     "LOW": 1,
     "INFO": 0,
 }
-RESET = "\033[0m"
-
-email_severities: set[str] = set()
 
 
-def send_alert_email(recipient: str, severity: str, description: str, raw_line: str, source_file: str):
-    """Send alert email via local MTA. No credentials required."""
-    hostname = socket.getfqdn()
-    subject = f"[{severity}] Security alert on {hostname}: {description}"
-    body = (
-        f"Severity:    {severity}\n"
-        f"Description: {description}\n"
-        f"Host:        {hostname}\n"
-        f"Log file:    {source_file}\n"
-        f"Log line:    {raw_line.strip()}\n"
-    )
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = f"security-alerts@{hostname}"
-    msg["To"] = recipient
-    msg.set_content(body)
-
-    try:
-        with smtplib.SMTP("localhost") as smtp:
-            smtp.send_message(msg)
-    except OSError as err:
-        log.error("Email send failed: %s", err)
+@dataclass(frozen=True)
+class Alert:
+    timestamp: str
+    severity: str
+    description: str
+    category: str
+    source_file: str
+    raw_line: str
 
 
-min_severity_rank = 0  # global filter, set from --min-severity
+# ── Emitters ─────────────────────────────────────────────────────────
+
+class AlertEmitter:
+    """Base class. Subclasses implement emit(). Each emitter handles its own errors."""
+
+    def emit(self, alert: Alert) -> None:
+        raise NotImplementedError
+
+    def close(self) -> None:
+        pass
+
+
+class ConsoleEmitter(AlertEmitter):
+
+    _SEVERITY_COLOR = {
+        "CRITICAL": "\033[1;31m",
+        "HIGH":     "\033[0;31m",
+        "MEDIUM":   "\033[0;33m",
+        "LOW":      "\033[0;36m",
+        "INFO":     "\033[0;32m",
+    }
+    _RESET = "\033[0m"
+
+    def emit(self, alert: Alert) -> None:
+        color = self._SEVERITY_COLOR.get(alert.severity, "")
+        print(
+            f"{color}[loghawk] [{alert.severity:8s}] {alert.timestamp}  "
+            f"{alert.description}{self._RESET}\n"
+            f"           File: {alert.source_file}\n"
+            f"           Log:  {alert.raw_line}\n"
+        )
+
+
+class JsonFileEmitter(AlertEmitter):
+
+    def __init__(self, path: str):
+        self._handle = open(path, "a", buffering=1)
+        log.info("JSON alerts writing to: %s", path)
+
+    def emit(self, alert: Alert) -> None:
+        record = {
+            "timestamp": alert.timestamp,
+            "severity": alert.severity,
+            "description": alert.description,
+            "category": alert.category,
+            "source_file": alert.source_file,
+            "raw_line": alert.raw_line,
+        }
+        self._handle.write(json.dumps(record) + "\n")
+        self._handle.flush()
+
+    def close(self) -> None:
+        self._handle.close()
+
+
+class SmtpEmitter(AlertEmitter):
+
+    def __init__(self, recipient: str, severities: set[str]):
+        self._recipient = recipient
+        self._severities = severities
+
+    def emit(self, alert: Alert) -> None:
+        if alert.severity not in self._severities:
+            return
+
+        hostname = socket.getfqdn()
+        subject = f"[{alert.severity}] Security alert on {hostname}: {alert.description}"
+        body = (
+            f"Severity:    {alert.severity}\n"
+            f"Description: {alert.description}\n"
+            f"Host:        {hostname}\n"
+            f"Log file:    {alert.source_file}\n"
+            f"Log line:    {alert.raw_line}\n"
+        )
+
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = f"security-alerts@{hostname}"
+        msg["To"] = self._recipient
+        msg.set_content(body)
+
+        try:
+            with smtplib.SMTP("localhost") as smtp:
+                smtp.send_message(msg)
+        except OSError as err:
+            log.error(
+                "Email send failed to %s for alert '%s': %s",
+                self._recipient, alert.description, err,
+            )
+
+
+# ── Alert dispatch ───────────────────────────────────────────────────
+
+emitters: list[AlertEmitter] = []
+min_severity_rank = 0
 
 
 def emit_alert(
@@ -170,10 +241,7 @@ def emit_alert(
     category: str,
     raw_line: str,
     source_file: str,
-    json_out_handle,
-    email_recipient: str | None,
 ):
-    """Print a colored alert to stdout, optionally write JSON, optionally email."""
     if SEVERITY_RANK.get(severity, 0) < min_severity_rank:
         return
 
@@ -181,34 +249,25 @@ def emit_alert(
         if dedup and not dedup.should_alert(description, source_file):
             return
 
-    timestamp = datetime.now(timezone.utc).isoformat()
-    color = SEVERITY_COLOR.get(severity, "")
-
-    print(
-        f"{color}[loghawk] [{severity:8s}] {timestamp}  {description}{RESET}\n"
-        f"           File: {source_file}\n"
-        f"           Log:  {raw_line.strip()}\n"
+    alert = Alert(
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        severity=severity,
+        description=description,
+        category=category,
+        source_file=source_file,
+        raw_line=raw_line.strip(),
     )
 
-    if json_out_handle:
-        record = {
-            "timestamp": timestamp,
-            "severity": severity,
-            "description": description,
-            "category": category,
-            "source_file": source_file,
-            "raw_line": raw_line.strip(),
-        }
-        json_out_handle.write(json.dumps(record) + "\n")
-        json_out_handle.flush()
-
-    if email_recipient and severity in email_severities:
-        send_alert_email(email_recipient, severity, description, raw_line, source_file)
+    for emitter in emitters:
+        try:
+            emitter.emit(alert)
+        except Exception as err:
+            log.error("Emitter %s failed: %s", type(emitter).__name__, err)
 
 
 # ── Log tailer ────────────────────────────────────────────────────────
 
-def tail_file(filepath: str, json_out_handle, email_recipient: str | None):
+def tail_file(filepath: str):
     """
     Open a log file, seek to end, then yield new lines as they arrive.
     Handles log rotation by detecting if the file was truncated or replaced.
@@ -227,7 +286,7 @@ def tail_file(filepath: str, json_out_handle, email_recipient: str | None):
         line = file_handle.readline()
 
         if line:
-            process_line(line, filepath, json_out_handle, email_recipient)
+            process_line(line, filepath)
         else:
             time.sleep(0.2)
 
@@ -244,7 +303,7 @@ def tail_file(filepath: str, json_out_handle, email_recipient: str | None):
 SELF_IDENTIFIERS = ("loghawk-alerts", "watch-alerts.py", "watch-alerts", "loghawk")
 
 
-def process_line(line: str, source_file: str, json_out_handle, email_recipient: str | None):
+def process_line(line: str, source_file: str):
     """Run all alert patterns against a single log line."""
     lower_line = line.lower()
     if any(tag in lower_line for tag in SELF_IDENTIFIERS):
@@ -264,7 +323,7 @@ def process_line(line: str, source_file: str, json_out_handle, email_recipient: 
                 if severity not in ("CRITICAL", "HIGH"):
                     continue
 
-        emit_alert(severity, description, category, line, source_file, json_out_handle, email_recipient)
+        emit_alert(severity, description, category, line, source_file)
         break  # One alert per line is enough
 
 
@@ -365,45 +424,44 @@ def main():
         config["brute_force_threshold"],
     )
 
-    global email_severities
-    email_severities = config["email_severities"]
-
     dedup_seconds = args.dedup_window if args.dedup_window is not None else config["dedup_window_seconds"]
     global dedup
     dedup = AlertDeduplicator(dedup_seconds)
 
-    log_files = resolve_log_files(args.file)
+    global emitters
+    emitters.append(ConsoleEmitter())
 
-    json_out_handle = None
     if args.json_out:
         try:
-            json_out_handle = open(args.json_out, "a", buffering=1)
-            log.info("JSON alerts writing to: %s", args.json_out)
+            emitters.append(JsonFileEmitter(args.json_out))
         except OSError as err:
             log.error("Cannot open JSON output file: %s", err)
             sys.exit(1)
 
     if args.email:
-        log.info("Email alerts (CRITICAL/HIGH) → %s", args.email)
+        emitters.append(SmtpEmitter(args.email, config["email_severities"]))
+        log.info(
+            "Email alerts (%s) → %s",
+            ",".join(sorted(config["email_severities"])), args.email,
+        )
 
+    log_files = resolve_log_files(args.file)
     print(f"\nWatching {len(log_files)} file(s). Press Ctrl+C to stop.\n")
 
-    # Handle Ctrl+C cleanly
     def handle_shutdown(signum, frame):
         print("\nShutting down.")
-        if json_out_handle:
-            json_out_handle.close()
+        for emitter in emitters:
+            emitter.close()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    # Start one thread per log file
     threads = []
     for filepath in log_files:
         thread = threading.Thread(
             target=tail_file,
-            args=(filepath, json_out_handle, args.email),
+            args=(filepath,),
             daemon=True,
             name=f"tailer-{os.path.basename(filepath)}",
         )
