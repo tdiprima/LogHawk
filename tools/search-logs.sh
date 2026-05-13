@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# search-logs.sh
 # Quick grep shortcuts for common security investigations.
 # Run on the central log server.
 #
@@ -13,6 +12,8 @@
 #   ./search-logs.sh audit-failures         — auditd auth failures
 #   ./search-logs.sh service-failures       — systemd service crashes
 #   ./search-logs.sh help                   — show all commands
+# 
+# Patterns intentionally maintained separately from alert_patterns.py — see [adr] for why
 
 LOG_BASE="${LOG_BASE:-/var/log/remote}"
 LOCAL_AUTH="/var/log/auth.log"       # Ubuntu

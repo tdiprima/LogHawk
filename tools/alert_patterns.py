@@ -5,6 +5,8 @@ Each entry: (regex_string, severity, description, category)
 
 Categories group related patterns for filtering and reporting.
 Source comments indicate which log file each pattern targets.
+
+Patterns intentionally maintained separately from search-logs.sh — see [adr] for why
 """
 
 ALERT_PATTERNS = [
