@@ -86,7 +86,12 @@ sudo python3 tools/watch-alerts.py --file /var/log/remote/*/auth.log
 
 # With email alerts for CRITICAL/HIGH events
 sudo python3 tools/watch-alerts.py --email security@example.com
+
+# Point to a custom config file
+sudo python3 tools/watch-alerts.py --config /etc/loghawk/loghawk.conf
 ```
+
+All tunable parameters (brute force thresholds, dedup window, email severities, log base path) can be set in `/etc/loghawk/loghawk.conf`. See [CONFIGURATION.md](CONFIGURATION.md) for details.
 
 ### 7. Search logs during an investigation
 
@@ -114,6 +119,18 @@ Identify hosts that have stopped sending logs.
 ```bash
 ./tools/check-log-pipeline.sh --minutes 15
 ```
+
+By default, only log files that actually exist for a host are checked — no false MISS alerts for logs the host never produced. To enable strict checking for a specific host, create a `.expected-logs` file listing one filename per line:
+
+```bash
+cat > /var/log/remote/web-01/.expected-logs <<EOF
+auth.log
+kern.log
+syslog.log
+EOF
+```
+
+See [CONFIGURATION.md](CONFIGURATION.md) for full details on per-host expected logs.
 
 ### 9. Export for AI-assisted analysis
 
@@ -153,6 +170,10 @@ Then export everything for AI triage:
 $ sudo python3 tools/export-for-ai.py --hours 2 --llm-prompt | pbcopy
 # Paste directly into Claude or ChatGPT
 ```
+
+## Configuration
+
+All tools share a single config file at `/etc/loghawk/loghawk.conf`. CLI flags and environment variables override it. See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
 
 ## Requirements
 

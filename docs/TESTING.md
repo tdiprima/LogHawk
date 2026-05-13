@@ -10,13 +10,14 @@ End-to-end verification after installing the central collector and each agent.
 2. **Central** — port check, service up, self-inject doing its thing
 3. **Agent** — placeholder check, TCP connect, inject + verify on central per host
 4. **Self-forward** — log server pulling double duty, rsyslog config passes vibe check
-5. **Pipeline health** — check-log-pipeline.sh + stale log simulation
+5. **Pipeline health** — check-log-pipeline.sh + stale log simulation + per-host expected logs
 6. **watch-alerts.py** — inject per severity, brute-force thresholds, JSON output, log rotation handled
 7. **search-logs.sh** — all commands tested + error paths hit
 8. **export-for-ai.py** — JSON export, host filter, file output, LLM-ready prompt, missing-path error handled
 9. **Full E2E scenario** — copy-paste code, whole flow validated
-10. **Negative/security tests** — wrong cert, no cert, raw TCP, bad paths (all the cursed cases)
-11. **Quick checklist** — post-install sanity check so nothing's silently broken
+10. **Configuration file** — default load, explicit path, missing/malformed errors, env var override
+11. **Negative/security tests** — wrong cert, no cert, raw TCP, bad paths, bad config (all the cursed cases)
+12. **Quick checklist** — post-install sanity check so nothing's silently broken
 
 ---
 
@@ -149,6 +150,33 @@ grep "LogHawk self-forward test" /var/log/remote/$(hostname)/auth.log
 ```
 
 Simulate a stale host by stopping rsyslog on an agent, waiting 20 minutes, then re-running. Should show `STALE` for that host.
+
+**Auto-discover mode (default):** hosts without `.expected-logs` only check files that exist. No false MISS for logs the host never produced.
+
+```bash
+# Host with only auth.log and kern.log — should NOT show MISS for cron/audit/syslog
+ls /var/log/remote/minimal-host/
+# auth.log  kern.log
+./tools/check-log-pipeline.sh --minutes 15 | grep minimal-host
+# Only OK or STALE lines for auth.log and kern.log — no MISS
+```
+
+**Strict mode:** create `.expected-logs` to declare which files a host must have.
+
+```bash
+printf 'auth.log\nkern.log\nsyslog.log\n' > /var/log/remote/web-01/.expected-logs
+# Now remove syslog.log and re-run:
+./tools/check-log-pipeline.sh --minutes 15 | grep web-01
+# Should show MISS for syslog.log
+```
+
+**Empty host directory:**
+
+```bash
+mkdir -p /var/log/remote/ghost-host
+./tools/check-log-pipeline.sh --minutes 15 | grep ghost-host
+# EMPTY  ghost-host  -  (no log files found)
+```
 
 ## 6. watch-alerts.py
 
@@ -304,7 +332,51 @@ sudo python3 tools/export-for-ai.py --hours 1 | python3 -c \
   "import json,sys; d=json.load(sys.stdin); print('Events:', d['summary']['total_events'])"
 ```
 
-## 10. Negative / Security Tests
+## 10. Configuration File Tests
+
+**Default config loaded:**
+
+```bash
+# Install default config
+sudo cp tools/loghawk.conf.example /etc/loghawk/loghawk.conf
+sudo python3 tools/watch-alerts.py --file /var/log/auth.log 2>&1 | head -3
+# Should show "Loaded config from /etc/loghawk/loghawk.conf" in log output
+```
+
+**Explicit config path:**
+
+```bash
+sudo python3 tools/watch-alerts.py --config /etc/loghawk/loghawk.conf --file /var/log/auth.log
+# Uses the specified config
+```
+
+**Missing explicit config — must fail:**
+
+```bash
+sudo python3 tools/watch-alerts.py --config /nonexistent/loghawk.conf --file /var/log/auth.log
+# ERROR: Config file not found: /nonexistent/loghawk.conf (from --config)
+# Exit code: 1
+```
+
+**Malformed config — must fail:**
+
+```bash
+echo "brute_force_threshold = -5" | sudo tee /tmp/bad.conf
+echo "[alerting]" | cat - /tmp/bad.conf | sudo tee /tmp/bad.conf > /dev/null
+sudo python3 tools/watch-alerts.py --config /tmp/bad.conf --file /var/log/auth.log
+# ERROR: Invalid value for alerting.brute_force_threshold: -5 (must be positive)
+# Exit code: 1
+```
+
+**LOGHAWK_CONFIG env var (bash tools):**
+
+```bash
+LOGHAWK_CONFIG=/nonexistent/path ./tools/search-logs.sh ssh-fails
+# ERROR: LogHawk config not found: /nonexistent/path (from LOGHAWK_CONFIG)
+# Exit code: 1
+```
+
+## 11. Negative / Security Tests
 
 | Test | Command | Expected |
 |------|---------|----------|
@@ -313,15 +385,17 @@ sudo python3 tools/export-for-ai.py --hours 1 | python3 -c \
 | Direct TCP without TLS | `nc log-server.example.com 6514` then send raw syslog | Central ignores or rejects (StreamDriver.Mode=1 requires TLS) |
 | Log base missing | `LOG_BASE=/nonexistent ./tools/check-log-pipeline.sh` | `ERROR: Log base does not exist` |
 | watch-alerts.py unreadable file | `sudo python3 tools/watch-alerts.py --file /root/secret.log` (no perms) | Logs `Cannot open ...` error, does not crash |
+| Config file unreadable | `sudo chmod 000 /etc/loghawk/loghawk.conf` then run any tool | `ERROR: Cannot read config file (permission denied)` |
 
 ## Quick Checklist
 
 After any install or config change, run through this in order:
 
+- [ ] `/etc/loghawk/loghawk.conf` exists and is readable (`ls -l /etc/loghawk/loghawk.conf`)
 - [ ] `openssl s_client` mTLS handshake succeeds
 - [ ] `ss -tlnp | grep 6514` shows rsyslogd
 - [ ] `logger` on agent → file appears in `/var/log/remote/<host>/auth.log` within 5s
-- [ ] `check-log-pipeline.sh` exits 0 for all active agents
+- [ ] `check-log-pipeline.sh` exits 0 for all active agents (no false MISS for hosts without `.expected-logs`)
 - [ ] Injected `Failed password` line triggers `[HIGH]` alert in `watch-alerts.py`
 - [ ] `search-logs.sh ssh-fails` returns results without error
 - [ ] `export-for-ai.py --hours 1` returns valid JSON with `total_events > 0`

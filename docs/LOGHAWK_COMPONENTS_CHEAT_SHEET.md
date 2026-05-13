@@ -129,11 +129,13 @@ It:
 
 #### 🚨 When triggered:
 
-It can:
+Alerts are dispatched through pluggable emitters — each handles its own errors independently:
 
-* print colored alerts
-* write JSON logs
-* send emails (high/critical)
+* **ConsoleEmitter** — colored terminal output
+* **JsonFileEmitter** — append-only JSONL file
+* **SmtpEmitter** — email via local MTA (filters by configured severities)
+
+Adding a new notification channel (e.g. webhook, Slack) means adding one class — no changes to the alert pipeline.
 
 #### 🧠 Hidden pro move:
 
@@ -172,6 +174,8 @@ You can instantly ask:
 
 * Looks at timestamps of logs per host
 * Flags hosts that haven't sent logs recently
+* **Auto-discover mode** (default): only checks log files that exist — no false MISS for logs the host never produced
+* **Strict mode**: drop a `.expected-logs` file in a host's log dir listing required files — MISS fires if any are absent
 
 👉 Why this matters:  
 Silent failure = worst failure
@@ -185,7 +189,7 @@ Could mean:
 
 👉 Mental model:
 
-"Attendance sheet for your servers."
+"Attendance sheet for your servers — smart enough to know which servers take which classes."
 
 ## 🤖 6. AI export / summarizer
 
@@ -218,5 +222,27 @@ NOT:
 👉 Mental model:
 
 "Analyst prep before handing it to AI."
+
+## ⚙️ 7. Configuration
+
+### `loghawk.conf` → "One file to tune everything"
+
+All tools read `/etc/loghawk/loghawk.conf` (INI format). Covers:
+
+* log base path
+* brute force thresholds
+* dedup window
+* email severities
+* pipeline stale minutes + expected log files
+
+👉 Precedence:
+
+CLI flags > environment variables > config file > built-in defaults
+
+👉 Mental model:
+
+"One knob panel for the whole system. CLI flags are the override switch."
+
+See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
 
 <br>

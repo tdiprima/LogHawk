@@ -7,7 +7,7 @@
 **Purpose:** Systemd unit — restarts on failure, starts after rsyslog, hardened with `ProtectSystem=strict`
 
 **File:**` install-alerts-daemon.sh`  
-**Purpose:** Copies scripts to `/opt/loghawk`, writes config to `/etc/loghawk/alerts.conf`, enables+starts service
+**Purpose:** Copies scripts to `/opt/loghawk`, writes config to `/etc/loghawk/alerts.conf`, installs default `/etc/loghawk/loghawk.conf` if absent, enables+starts service
 
 **File:** `uninstall-alerts-daemon.sh`  
 **Purpose:** Stops, disables, removes everything. `--keep-config` option to preserve config
@@ -34,10 +34,17 @@ systemctl status loghawk-alerts
 journalctl -u loghawk-alerts -f
 ```
 
-### Reconfigure — edit /etc/loghawk/alerts.conf, then:
+### Reconfigure
+
+Two config files live in `/etc/loghawk/`:
+
+- `alerts.conf` — systemd environment file, sets CLI flags for the service
+- `loghawk.conf` — shared config (thresholds, dedup window, email severities, log base). See [CONFIGURATION.md](CONFIGURATION.md).
+
+After editing either file:
 
 ```sh
-systemctl restart loghawk-alerts
+sudo systemctl restart loghawk-alerts
 ```
 
 ## Uninstall
@@ -49,7 +56,7 @@ sudo ./tools/uninstall-alerts-daemon.sh
 
 ## Run the installer with sudo
 
-Script writes to `/opt/loghawk`, `/etc/loghawk`, `/etc/systemd/system/` and runs `systemctl`. All need root.
+Script writes to `/opt/loghawk` (scripts + config loader), `/etc/loghawk` (runtime config), `/etc/systemd/system/` (service unit) and runs `systemctl`. All need root.
 
 Script checks `EUID -ne 0` and exits with error if not root.
 
