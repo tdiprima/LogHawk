@@ -96,7 +96,10 @@ ALERT_PATTERNS = [
     (r"ACPI Error",
      "HIGH", "ACPI hardware error", "kernel"),
 
-    (r"link (?:is not ready|down)",
+    (r"ata\d+\.\d+: SATA link down",
+     "LOW", "SATA link down (expected during boot enumeration)", "kernel"),
+
+    (r"(?<!SATA )link (?:is not ready|down)",
      "HIGH", "Network link down", "kernel"),
 
     # ── cron.log ─────────────────────────────────────────────────────
