@@ -223,7 +223,7 @@ NOT:
 
 "Analyst prep before handing it to AI."
 
-## ⚙️ 7. Configuration
+## ⚙ 7. Configuration
 
 ### `loghawk.conf` → "One file to tune everything"
 
