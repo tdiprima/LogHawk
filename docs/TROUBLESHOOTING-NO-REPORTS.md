@@ -4,6 +4,8 @@ Work through these layers in order. Each section isolates one part of the pipeli
 
 ### 1. Is the daemon running?
 
+**Run on: logging server**
+
 ```bash
 systemctl status loghawk-alerts
 ```
@@ -17,6 +19,8 @@ journalctl -u loghawk-alerts -n 50
 
 ### 2. Are the log files being updated?
 
+**Run on: logging server**
+
 Check whether the source logs themselves have recent activity:
 
 ```bash
@@ -26,6 +30,8 @@ ls -lt /var/log/auth.log /var/log/secure /var/log/syslog /var/log/messages 2>/de
 If timestamps are stale, the problem is upstream — rsyslog isn't writing, not LogHawk.
 
 ### 3. Is rsyslog running?
+
+**Run on: logging server**
 
 ```bash
 systemctl status rsyslog
@@ -46,6 +52,8 @@ sudo systemctl restart rsyslog
 
 ### 4. Are remote logs arriving at the central server?
 
+**Run on: logging server**
+
 Run the pipeline health check:
 
 ```bash
@@ -59,6 +67,8 @@ sudo bash tools/check-log-pipeline.sh
 If hosts are stale, check agent-side rsyslog and TLS certs (see step 6).
 
 ### 5. Are alerts actually being generated?
+
+**Run on: logging server**
 
 Run the watcher manually against the log files in question:
 
@@ -89,6 +99,8 @@ Common causes of silent forwarding failure:
 
 ### 7. Is email delivery working?
 
+**Run on: logging server**
+
 If alerts appear on the console but emails aren't arriving:
 
 ```bash
@@ -111,6 +123,8 @@ sudo systemctl enable --now postfix
 ```
 
 ### 8. Check the config
+
+**Run on: logging server**
 
 ```bash
 cat /etc/loghawk/loghawk.conf
