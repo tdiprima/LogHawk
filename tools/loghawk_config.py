@@ -37,6 +37,7 @@ _DEFAULTS = {
         "brute_force_threshold": "3",
         "dedup_window_seconds": "14400",
         "email_severities": "CRITICAL,HIGH",
+        "ignored_services": "insights-client,dnf-automatic,dnf-makecache",
     },
     "pipeline": {
         "stale_minutes": "15",
@@ -94,6 +95,12 @@ def _validate(parser: configparser.ConfigParser) -> dict:
         parser.get("alerting", "email_severities"),
     )
 
+    # Empty list is valid: it means "ignore no services".
+    raw_ignored = parser.get("alerting", "ignored_services")
+    result["ignored_services"] = frozenset(
+        s.strip() for s in raw_ignored.split(",") if s.strip()
+    )
+
     result["stale_minutes"] = _validate_positive_int(
         "pipeline", "stale_minutes", parser.get("pipeline", "stale_minutes"),
     )
@@ -117,6 +124,7 @@ def load_config(config_path: str | None = None) -> dict:
         brute_force_threshold: int
         dedup_window_seconds: int
         email_severities: set[str]
+        ignored_services: frozenset[str]
         stale_minutes: int
         expected_logs: list[str]
     """

@@ -33,6 +33,12 @@ dedup_window_seconds = 14400
 # Valid values: CRITICAL, HIGH, MEDIUM, LOW, INFO
 email_severities = CRITICAL,HIGH
 
+# Systemd services whose failures should NOT raise alerts (comma-separated,
+# unit name without the .service suffix). Use for known-benign noise like
+# Red Hat Insights on unregistered hosts or dnf metadata refresh failures.
+# Leave empty to alert on every service failure.
+ignored_services = insights-client,dnf-automatic,dnf-makecache
+
 [pipeline]
 # check-log-pipeline.sh marks a host stale when any expected log file
 # has not been written within this many minutes.

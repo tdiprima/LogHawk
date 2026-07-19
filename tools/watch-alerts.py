@@ -302,6 +302,9 @@ def tail_file(filepath: str):
 
 SELF_IDENTIFIERS = ("loghawk-alerts", "watch-alerts.py", "watch-alerts", "loghawk")
 
+# Systemd units whose failures are known noise (set via alerting.ignored_services).
+ignored_services: frozenset[str] = frozenset()
+
 
 def process_line(line: str, source_file: str):
     """Run all alert patterns against a single log line."""
@@ -313,6 +316,11 @@ def process_line(line: str, source_file: str):
         match = compiled_pattern.search(line)
         if not match:
             continue
+
+        # Skip failures from services the operator marked as known noise
+        if category == "service" and match.groups():
+            if match.group(1) in ignored_services:
+                continue
 
         # Extra check: count brute force from same IP
         if category == "brute_force" and len(match.groups()) >= 2:
@@ -427,6 +435,11 @@ def main():
     dedup_seconds = args.dedup_window if args.dedup_window is not None else config["dedup_window_seconds"]
     global dedup
     dedup = AlertDeduplicator(dedup_seconds)
+
+    global ignored_services
+    ignored_services = config["ignored_services"]
+    if ignored_services:
+        log.info("Ignoring service failures from: %s", ", ".join(sorted(ignored_services)))
 
     global emitters
     emitters.append(ConsoleEmitter())
