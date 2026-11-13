@@ -121,7 +121,9 @@ ALERT_PATTERNS = [
     (r"type=USER_AUTH msg=(?!.*op=pubkey).*res=failed",
      "HIGH", "Auditd: authentication failure", "audit"),
 
-    (r"type=ANOM_",
+    # Promiscuous mode on virtual interfaces (containers/bridges) is normal noise;
+    # physical NICs (e.g. ens192) still alert.
+    (r"type=ANOM_(?!PROMISCUOUS\b.*\bdev=(?:veth|br-|tap|docker))",
      "CRITICAL", "Auditd: anomaly event", "audit"),
 
     (r'type=EXECVE msg=.*a0="(/usr/s?bin/(?:chmod|chown|chattr|setfacl))',
